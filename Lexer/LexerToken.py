@@ -1,0 +1,13 @@
+class LexerToken:
+    token = 0
+    value = 0
+
+    def __init__(self, token, value):
+        self.token = token.value
+        self.value = value
+    
+    def getToken(self):
+        return self.token
+    
+    def getValue(self):
+        return self.value
