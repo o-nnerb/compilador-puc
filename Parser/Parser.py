@@ -136,6 +136,27 @@ class ParserWhile(ParserBlock):
     def isWhileBlock(object):
         return object.getValue() == "while"
 
+class ParserFor(ParserBlock):
+    value = 0
+
+    def __init__(self, value):
+        self.value = value
+        super(ParserFor, self).__init__()
+    
+    @staticmethod
+    def isForBlock(object):
+        return object.getValue() == "for"
+
+class ParserOperatorForIn():
+    value = 0
+
+    def __init__(self, value):
+        self.value = value
+    
+    @staticmethod
+    def isInOperator(object):
+        return object.getValue() == "in"
+
 class ParserDeclarationVariable:
     variable = 0
     type = 0
@@ -175,6 +196,39 @@ class ParserBreak:
     @staticmethod
     def isBreak(object):
         return object.getValue() == "break"
+
+class ParserOperatorRange:
+    operator = 0
+
+    def __init__(self, operator):
+        self.operator = operator
+
+    @staticmethod
+    def isForRange(object):
+        return object.getToken() == LexerEnum.operator_range    
+
+class ParserOperatorForRange:
+    first = 0
+    last = 0
+    operator = 0
+
+    def __init__(self, operator, first, last):
+        self.operator = operator
+        self.first = first
+        self.last = last
+
+    def isRangeMounted(self):
+        return self.first and type(self.first) == ParserVariable and self.last and type(self.last) == ParserVariable and self.operator and type(self.operator) == ParserOperatorRange
+
+class ParserForInRange:
+    variable = 0
+    operator = 0
+    range = 0
+
+    def __init__(self, variable, operator, range):
+        self.variable = variable
+        self.operator = operator
+        self.range = range
 
 class ParserEmpty:
     def __init__(self):
@@ -227,7 +281,20 @@ class ParserMerge:
                 return second
             
             if type(second) == ParserDeclarationVariable and type(second.variable) == ParserOperationAssigment:
+                if not first.isStoreVariable():
+                    return ParserError()
                 second.variable = ParserMerge.merge(first, second.variable)
+                return second
+
+            if type(second) == ParserOperatorForRange and not second.first:
+                second.first = first
+                return second
+            
+            if type(second) == ParserForInRange and not second.variable:
+                if not first.isStoreVariable():
+                    return ParserError()
+
+                second.variable = first
                 return second
         
         if type(first) == ParserLineBlock:
@@ -290,6 +357,19 @@ class ParserMerge:
                 first.setBlock(second)
                 return first
 
+        if type(first) == ParserOperatorRange:
+            if type(second) == ParserVariable:
+                return ParserOperatorForRange(first, 0, second)
+
+        if type(first) == ParserOperatorForIn:
+            if type(second) == ParserOperatorForRange and second.isRangeMounted():
+                return ParserForInRange(0, first, second)
+
+        if type(first) == ParserFor:
+            if type(second) == LexerQueue:
+                first.setBlock(second)
+                return first
+
         return ParserError()
 
     @staticmethod
@@ -343,6 +423,12 @@ class Parser:
 
             if type == ParserVariableType and ParserVariableType.isVariableType(object):
                 return ParserMerge.merge(ParserVariableType(object), callback())
+
+            if type == ParserOperatorRange and ParserOperatorRange.isForRange(object):
+                return ParserMerge.merge(ParserOperatorRange(object), callback())
+
+            if type == ParserOperatorForIn and ParserOperatorForIn.isInOperator(object):
+                return ParserMerge.merge(ParserOperatorForIn(object), callback())
             
         return notFound()
 
@@ -379,6 +465,9 @@ class Parser:
 
         if ParserWhile.isWhileBlock(keyword):
             return self.isWhileValid(Parser.isMergeValid(self.blockIf()))
+
+        if ParserFor.isForBlock(keyword):
+            return self.isForValid(Parser.isMergeValid(self.blockFor()))
         
         if ParserDeclarationVariable.isDeclarationVariable(keyword):
             return self.isDeclarationValid(keyword, Parser.isMergeValid(self.declarationLine()))
@@ -402,6 +491,18 @@ class Parser:
             return ParserError()
 
         return ParserMerge.merge(ParserWhile(merged), self.block())
+    
+    def isForValid(self, merged):
+        if type(merged) == ParserError:
+            return merged
+        
+        if type(merged) == ParserEmpty:
+            return ParserError()
+
+        if type(merged) != ParserForInRange:
+            return ParserError()
+
+        return ParserMerge.merge(ParserFor(merged), self.block())        
 
     def isIfValid(self, merged):
         if type(merged) == ParserError:
@@ -441,6 +542,20 @@ class Parser:
             ParserLineBlock,
             ParserVariable,
             ParserOperator
+        ], ParserError)
+
+    def blockFor(self):
+        if self.queue.isEmpty():
+            return ParserError()
+    
+        object = self.queue.getHead()
+        self.queue.toRight()
+
+        return Parser.toParse(object, self.blockFor, [
+            ParserBlock,
+            ParserVariable,
+            ParserOperatorRange,
+            ParserOperatorForIn
         ], ParserError)
 
     def declarationLine(self):    

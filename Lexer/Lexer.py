@@ -8,7 +8,7 @@ from Interpreter.Variable.VariableType import VariableType
 
 # re.match("(?:if|else|while|func|return|for|in|var|let)", string
 class LexerKeyword:
-    keywords = ['if', 'else', 'while', 'func', 'return', 'for', 'in', 'var', 'let', 'break']
+    keywords = ['if', 'else', 'while', 'func', 'return', 'for', 'var', 'let', 'break']
     @staticmethod
     def isKeyword(string):
         for keyword in LexerKeyword.keywords:
@@ -91,10 +91,14 @@ class Lexer:
         if line[imin] != ">":
             return (imin - 1, False)
         
-        if line[imin+1] != "=":
-            return (imin, LexerEnum.logical)
+        if line[imin+1] == "=":
+            return (imin+1, LexerEnum.logical)
+        
+        if line[imin+1] == ".":
+            if line[imin+2] == ".":
+                return (imin+2, LexerEnum.operator_range)
 
-        return (imin+1, LexerEnum.logical)
+        return (imin, LexerEnum.logical)
 
     @staticmethod 
     def isLess(imin, line):
@@ -115,6 +119,11 @@ class Lexer:
     
     @staticmethod
     def isDelimitador(imin, line):
+        if line[imin] == ".":
+            if line[imin+1] == ".":
+                if line[imin+2] == "<" or line[imin+2] == ".":
+                    return (imin+2, LexerEnum.operator_range)
+
         if bool(re.match("(?:\(|\)|\;|\:|\,|\.|\{|\})", line[imin])) == False:
             return (imin-1, False)
 
@@ -135,6 +144,9 @@ class Lexer:
 
         if VariableType.isPrimitive(string):
             return (True, LexerEnum.primitive)
+        
+        if string == "in":
+            return (True, LexerEnum.operator_in)
 
         if not LexerKeyword.isKeyword(string):
             return (False, False)

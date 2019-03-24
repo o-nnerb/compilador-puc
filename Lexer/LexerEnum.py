@@ -22,7 +22,8 @@ class LexerEnum(Enum):
 
     primitive = "PRI"
 
-    forloop = "FOR" # {..., ...<} (não implementado)
+    operator_range = "OPR_FIN"
+    operator_in = "OPR_IN"
 
     error = "ERR"
     expression = "EXP"
