@@ -6,7 +6,6 @@ from Lexer.LexerHash import LexerHash
 from Lexer.LexerQueue import LexerQueue
 
 Lexer.run(sys.argv)
-
 Parser.run()
 Interpreter.run()
 

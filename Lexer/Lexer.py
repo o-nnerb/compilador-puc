@@ -8,7 +8,7 @@ from Interpreter.Variable.VariableType import VariableType
 
 # re.match("(?:if|else|while|func|return|for|in|var|let)", string
 class LexerKeyword:
-    keywords = ['if', 'else', 'while', 'func', 'return', 'for', 'in', 'var', 'let']
+    keywords = ['if', 'else', 'while', 'func', 'return', 'for', 'in', 'var', 'let', 'break']
     @staticmethod
     def isKeyword(string):
         for keyword in LexerKeyword.keywords:

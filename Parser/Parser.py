@@ -70,7 +70,6 @@ class ParserLineBlockUnstack:
     
     def setValue(self, value):
         self.value = value
-        return
     
     def getBefore(self):
         return self.before
@@ -122,10 +121,20 @@ class ParserIf(ParserBlock):
 
 class ParserElse(ParserBlock):
     ifBlock = 0
-    block = 0
 
     def __init__(self):
         super(ParserElse, self).__init__()
+
+class ParserWhile(ParserBlock):
+    value = 0
+
+    def __init__(self, value):
+        self.value = value
+        super(ParserWhile, self).__init__()
+    
+    @staticmethod
+    def isWhileBlock(object):
+        return object.getValue() == "while"
 
 class ParserDeclarationVariable:
     variable = 0
@@ -158,6 +167,14 @@ class ParserVariableType:
     @staticmethod
     def isVariableType(object):
         return object.getToken() == LexerEnum.primitive
+    
+class ParserBreak:
+    def __init__(self):
+        return
+
+    @staticmethod
+    def isBreak(object):
+        return object.getValue() == "break"
 
 class ParserEmpty:
     def __init__(self):
@@ -268,6 +285,11 @@ class ParserMerge:
                 if second.variable and second.type:
                     return second
 
+        if type(first) == ParserWhile:
+            if type(second) == LexerQueue:
+                first.setBlock(second)
+                return first
+
         return ParserError()
 
     @staticmethod
@@ -294,7 +316,7 @@ class Parser:
     
     @staticmethod
     def toParse(object, callback, types, notFound):
-        for type in types:
+        for type in types:            
             if type == ParserLineBlockUnstack and ParserLineBlockUnstack.isLineBlockUnstack(object):
                 return ParserMerge.merge(ParserLineBlockUnstack(), callback())
 
@@ -330,7 +352,7 @@ class Parser:
     
         object = self.queue.getHead()
         self.queue.toRight()
-
+        
         if Parser.isEndline(object):
             return ParserEmpty()
 
@@ -352,13 +374,18 @@ class Parser:
         if ParserIf.isIfBlock(keyword):
             return self.isIfValid(Parser.isMergeValid(self.blockIf()))
         
+        if ParserBreak.isBreak(keyword):
+            return ParserBreak()
+
+        if ParserWhile.isWhileBlock(keyword):
+            return self.isWhileValid(Parser.isMergeValid(self.blockIf()))
+        
         if ParserDeclarationVariable.isDeclarationVariable(keyword):
             return self.isDeclarationValid(keyword, Parser.isMergeValid(self.declarationLine()))
 
     # ParserDeclarationVariable
     # ParserOperationAssigment
     def isDeclarationValid(self, keyword, merged):
-        print(merged)
         if type(merged) == ParserOperationAssigment:
             return ParserDeclarationVariable(merged, VariableDeclarationCast.auto, VariableConstantType.toConstantType(keyword))
         if type(merged) == ParserDeclarationVariable:
@@ -366,6 +393,15 @@ class Parser:
             return merged
 
         return ParserError()
+
+    def isWhileValid(self, merged):
+        if type(merged) == ParserError:
+            return merged
+        
+        if type(merged) == ParserEmpty:
+            return ParserError()
+
+        return ParserMerge.merge(ParserWhile(merged), self.block())
 
     def isIfValid(self, merged):
         if type(merged) == ParserError:
@@ -375,7 +411,7 @@ class Parser:
             return ParserError()
 
         merged = ParserMerge.merge(ParserIf(merged), self.block())
-
+        
         if type(merged) == ParserIf:
             if ParserIf.isElseBlock(self.queue.getHead()):
                 self.queue.toRight()
@@ -429,20 +465,24 @@ class Parser:
         
     def block(self):
         object = self.queue.getHead()
-        self.queue.toRight()
-        
         instructions = LexerQueue()
 
         while object and not ParserBlock.isCloseBlock(object):
             line = Parser.isMergeValid(self.execute())
+            
             if type(line) == ParserError:
                 instructions = line
                 break
 
-            instructions.insert(line)
-            object = self.queue.getHead()
-            self.queue.toRight()
+            if type(line) != ParserEmpty:
+                instructions.insert(line)
 
+            object = self.queue.getHead()
+
+        if not object:
+            return ParserError()
+
+        self.queue.toRight()
         return instructions        
         
     @staticmethod
@@ -452,6 +492,9 @@ class Parser:
     @staticmethod
     def isMergeValid(merged):
         if type(merged) == ParserOperation and not merged.first:
+            return ParserError()
+
+        if type(merged) == ParserOperationAssigment and not merged.first:
             return ParserError()
         
         return merged
@@ -481,398 +524,5 @@ class Parser:
         instructions.verbose(showContent=False)
         quit()
 
-"""
-@unique
-class ParserEnum(Enum):
-    instruction = "INT"
-    logical = "LOG"
-    runtimeBlock = "RUNBLOCK"
-    block = "BLOCK"
-
-    @staticmethod
-    def compare(object, values):
-        string = object.value
-        if type(values) != list:
-            return string == values.value
-        
-        for val in values:
-            if string == val.value:
-                return True
-        
-        return False
-
-class ParserOperator:
-    value = 0
-    type = 0
-
-    def __init__(self, object):
-        self.value = object.getValue()
-        self.type = object.getToken()
-    
-    def isLogical(self):
-        return compareToken(self.type, [LexerEnum.logical, LexerEnum.logical_operator])
-    
-    def isNumerical(self):
-        return compareToken(self.type, [LexerEnum.operator, LexerEnum.logical_operator])
-
-class ParserOperation:
-    right = 0
-    left = 0
-    operator = 0
-    
-    def __init__(self, right, left, operator):
-        self.right = right
-        self.left = left
-        self.operator = operator
-    
-    def isAssigment(self):
-        return self.operator.value == '='
-    
-class ParserVariable:
-    value = 0
-    type = 0
-
-    def __init__(self, object):
-        self.value = object.getValue()
-        self.type = object.getToken()
-
-    def isVariable(self):
-        return self.type == LexerEnum.id
-    
-    def isCarry(self):
-        return compareToken(object, [LexerEnum.integer, LexerEnum.float, LexerEnum.boolean])
-
-    def valueCanChange(self):
-        if not self.isVariable(self):
-            return False
-        
-        # Pegar na Hash se é var ou let
-        return True
-
-    @staticmethod
-    def create(object):
-        self = ParserVariable(object)
-        if self.isVariable() or self.isCarry():
-            return self
-        
-        return False
-
-class ParserLineBlockStack: # ( ou )
-    def __init__(self):
-        return
-
-class ParserLineBlockUnstack:
-    def __init__(self):
-        return
-
-class ParserMerge:
-    def __init__(self, first, second):
-        return
-
-class ParserErrorType(Enum):
-    variable=0
-    empty=0
-    assigment=0
-
-class ParserError:
-    token = 0
-    typeError = 0
-
-    def __init__(self, token, typeError):
-        self.token = token
-        self.typeError = typeError
-
-class Parser:
-    queue = 0
-    context = []
-    warning = []
-
-    def __init__(self, queue):
-        self.queue = queue.copy()
-        self.queue.needsPersist(True)
-    
-    def isExpression(self, object, rightSide):
-        variable = ParserVariable(object)
-
-        if not variable:
-            return ParserError(object, ParserErrorType.variable)
-
-        if variable.isCarry() and not rightSide:
-            return ParserError(object, ParserErrorType.assigment)      
-
-        return ParserMerge(variable, self.shouldEnd(rightSide))
-
-    def isContext(self, context):
-        if not len(self.context):
-            return False
-        
-        return self.context[-1] == context
-
-    def shouldEnd(self, rightSide, variable=0):        
-        object = self.queue.getHead()
-        self.queue.toRight()
-
-        if object.getValue() == ')' and self.isContext(ParserEnum.runtimeBlock):
-            self.queue.toLeft()
-            return ParserLineBlockUnstack()
-
-        if compareToken(object, [LexerEnum.logical, LexerEnum.logical_operator]):
-            return self.isOperator(object, rightSide)
-
-        if self.isContext(ParserEnum.logical):
-            return False
-
-        if compareToken(object, [LexerEnum.operator, LexerEnum.logical_operator]):
-            return self.isOperator(object, rightSide)
-        
-        if compareToken(object, LexerEnum.assigment):
-            return self.isAssigment(rightSide)
-        
-        if compareToken(object, LexerEnum.endline):
-            return True
-        
-        if object.getValue() == ';':
-            return True
-        
-        return False
-
-    def isOperator(self, object, rightSide):
-        operator = ParserOperator(object)
-
-        object = self.queue.getHead()
-        self.queue.toRight()
-
-        if not rightSide:
-            self.warning.append(True)
-            #return False
-
-        if object.getValue() == '(':
-            return self.shouldStack()
-            
-        return self.isExpression(object, True)
-
-    def isAssigment(self, rightSide):
-        object = self.queue.getHead()
-        self.queue.toRight()
-
-        if rightSide:
-            return False
-        
-        if object.getValue() == '(':
-            return self.shouldStack()
-   
-        return self.isExpression(object, True)
-
-    def shouldPop(self, ret):
-        object = self.queue.getHead()
-        if compareToken(object, [LexerEnum.operator, LexerEnum.logical_operator]):
-            self.queue.toRight()
-            return ret and self.isOperator(object, True)
-        
-        return ret
-
-    def shouldStack(self):
-        self.context.append(ParserEnum.runtimeBlock)
-        warningLen = len(self.warning)
-
-        object = self.queue.getHead()
-        self.queue.toRight()
-
-        if object.getValue() == '(':
-            returnable = self.shouldStack()
-        else:
-            returnable = self.isExpression(object, True)
-            
-        if self.queue.getHead().getValue() == ')':
-            self.queue.toRight()
-        else:
-            return False
-
-        if len(self.warning) > warningLen:
-            self.warning.pop()
-
-        if not self.isContext(ParserEnum.runtimeBlock):
-            return False
-
-        self.context.pop()
-        return self.shouldPop(returnable)
-
-    def shouldStart(self):
-        line = 1
-        flag = True
-        
-        #self.context.append(ParserEnum.instruction)
-        while not self.queue.isEmpty():
-            object = self.queue.getHead()
-            self.queue.toRight()
-            warningLen = len(self.warning)
-
-            #print(str(line) + object.getValue())
-            
-            if not compareToken(object, LexerEnum.endline):
-                if object.getValue() == '}' and self.isContext(ParserEnum.block):
-                    self.queue.toLeft()
-                    return True
-
-                if compareToken(object, LexerEnum.keyword):
-                    if not self.isKeyword(object):
-                        print("Parser Error: keyword linha " + str(line))
-                        flag = flag and False
-                
-                else:
-                    isExpression = self.isExpression(object, False)
-                    if not isExpression:
-                        print("Parser Error: linha " + str(line))
-                        flag = flag and False
-                        
-                        last = self.queue.getHead()
-                        self.backLine()
-
-                        if len(self.warning) > warningLen:
-                            self.warning.pop()
-
-                    elif len(self.warning):
-                        print("WARNING: resultado não usado")
-                        self.warning.pop()
-                        
-                        last = self.queue.getHead()
-                        self.queue.toLeft()    
-                        self.backLine()
-
-            line += 1
-
-        return flag
-
-    def isVariable(self, value):
-        object = self.queue.getHead()
-        self.queue.toRight()
-
-        self.isExpression(object, False)
-
-        print(object.getValue())
-        quit()
-
-    def isKeyword(self, object):
-        value = object.getValue()
-        if value == "if":
-            return self.isLogicalBlock()
-        if value == "var":
-            return self.isVariable(value)
-        if value == "let":
-            return self.isVariable(value)
-
-    def isLogicalBlock(self):
-        while True:
-            object = self.queue.getHead()
-            self.queue.toRight()
-
-            if object.getValue() != "(":
-                return False
-
-            self.context.append(ParserEnum.logical)
-            validBlock = self.shouldStack()
-            self.context.pop()
-
-            if not validBlock or not self.isBlock():
-                return False
-
-            if not self.queue.getHead():
-                return True
-            
-            if self.queue.getHead().getValue() != "else":
-                #self.queue.toLeft()
-                return True
-
-            self.queue.toRight()
-            head = self.queue.getHead()
-
-            if head.getValue() != "if":
-                #self.queue.toLeft()
-                break
-            
-            self.queue.toRight()
-            return self.isKeyword(head)
-
-        return self.isBlock()
-
-    def isBlock(self):
-        object = self.queue.getHead()
-        self.queue.toRight()
-
-        if object.getValue() != "{":
-            return False
-    
-        object = self.queue.getHead()
-
-        if object and compareToken(object, LexerEnum.endline):
-            self.queue.toRight()
-
-        self.context.append(ParserEnum.block)
-        returnable = self.shouldStart()
-
-        if not self.isContext(ParserEnum.block):
-            return False
-
-        self.context.pop()
-
-        if not self.queue.getHead():
-            return False
-
-        if self.queue.getHead().getValue() != '}':
-            return False
-
-        self.queue.toRight()
-
-        if self.queue.getHead() and compareToken(self.queue.getHead(), LexerEnum.endline):
-            self.queue.toRight()
-        
-        return returnable
-
-    @staticmethod
-    def run():
-        self = Parser(LexerQueue.shared())
-        if self.queue.isEmpty():
-            return
-        
-        if not self.shouldStart():
-            print("Error Parse")
-            quit()
-
-    def backLine(self):
-        while True:
-            last = self.queue.toLeft()
-            
-            if not last:
-                break
-
-            if compareToken(last, LexerEnum.endline) or  last.getValue() == ";":
-                self.queue.toRight()
-                break
-        
-        print("AutoGen: ", end="")
-        #self.queue.toRight()
-
-        while True:
-            next = self.queue.getHead()
-            self.queue.toRight()
-
-            if not next:
-                break
-
-            if not compareToken(next, LexerEnum.endline):
-                print(next.getValue(), end=" ")
-
-            if next.getValue() == ";":
-                break
-
-            if compareToken(next, LexerEnum.endline):
-                break
-        print("\n")
-
-"""
 def compareToken(object, values):
     return LexerEnum.compare(object, values)
-"""
-def compareContext(object, values):
-    return ParserEnum.compare(object, values)
-    """
