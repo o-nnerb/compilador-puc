@@ -3,7 +3,7 @@ class LexerToken:
     value = 0
 
     def __init__(self, token, value):
-        self.token = token.value
+        self.token = token
         self.value = value
     
     def getToken(self):

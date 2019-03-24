@@ -4,6 +4,264 @@ from Lexer.LexerToken import LexerToken
 from .ParserTree import ParserTree
 from enum import Enum, unique
 
+class ParserVariable(LexerToken):
+    def __init__(self, value):
+        super(ParserVariable, self).__init__(value.getToken(), value.getValue())
+
+    @staticmethod
+    def isVariable(object):
+        return compareToken(object, [LexerEnum.id, LexerEnum.integer, LexerEnum.float, LexerEnum.boolean])
+    
+    def isStoreVariable(self):
+        return compareToken(self, LexerEnum.id)
+    
+class ParserOperator(LexerToken):
+    def __init__(self, value):
+        super(ParserOperator, self).__init__(value.getToken(), value.getValue())
+
+    @staticmethod
+    def isOperator(object):
+        return compareToken(object, [LexerEnum.operator, LexerEnum.logical, LexerEnum.logical_operator])
+
+class ParserAssigment(ParserOperator):
+    def __init__(self, value):
+        super(ParserAssigment, self).__init__(value)
+    
+    @staticmethod
+    def isAssigment(object):
+        return compareToken(object, LexerEnum.assigment)
+
+class ParserOperation:
+    first = 0
+    operator = 0
+    second = 0
+
+    def __init__(self, first, second, operator):
+        self.first = first
+        self.second = second
+        self.operator = operator
+
+class ParserOperationAssigment(ParserOperation):
+    def __init__(self, first, second, operator):
+        super(ParserOperationAssigment, self).__init__(first, second, operator)
+
+class ParserLineBlock:
+    def __init__(self):
+        return
+
+    @staticmethod
+    def isLineBlock(object):
+        return object.getValue() == '('
+
+class ParserLineBlockUnstack:
+    value = 0
+    before = 0
+
+    def __init__(self):
+        self.value = 0
+
+    def getValue(self):
+        return self.value
+    
+    def setValue(self, value):
+        self.value = value
+        return
+    
+    def getBefore(self):
+        return self.before
+
+    def setBefore(self, value):
+        self.before = value
+
+    @staticmethod
+    def isLineBlockUnstack(object):
+        return object.getValue() == ')'
+
+class ParserEmpty:
+    def __init__(self):
+        return
+
+class ParserError:
+    def __init__(self):
+        return
+
+class ParserMerge:
+    def merge(first, second):
+        ParserMerge.printObject(first)
+        ParserMerge.printObject(second)
+        print()
+
+        if type(second) == ParserError:
+            return second
+
+        if type(first) == ParserError:
+            return first
+
+        if type(second) == ParserEmpty:
+            if type(first) == ParserOperator:
+                return ParserError()
+            return first
+
+        if type(first) == ParserAssigment:
+            if type(second) == ParserVariable:
+                return ParserOperationAssigment(0, second, first)
+            
+            if type(second) == ParserOperation and second.first:
+                return ParserOperationAssigment(0, second, first)
+        
+        if type(first) == ParserOperator:
+            if type(second) == ParserVariable:
+                return ParserOperation(0, second, first)
+            
+            if type(second) == ParserOperation and second.first:
+                return ParserOperation(0, second, first)
+
+        if type(first) == ParserVariable:
+            if type(second) == ParserOperationAssigment:
+                if not first.isStoreVariable():
+                    return ParserError()
+                second.first = first
+                return second
+
+            if type(second) == ParserOperation:
+                second.first = first
+                return second
+        
+        if type(first) == ParserLineBlock:
+            if type(second) == ParserLineBlockUnstack:
+                if second.getBefore():
+                    return ParserMerge.merge(second.getValue(), second.getBefore())
+                return second.getValue()
+
+        if type(second) == ParserLineBlockUnstack:
+            if not second.getValue():
+                second.setValue(first)
+                return second
+            
+            second.setValue(ParserMerge.merge(first, second.getValue()))
+            return second
+
+        
+        if type(first) == ParserLineBlockUnstack:
+            if type(second) == ParserOperation and not second.first:
+                first.setBefore(second)
+                return first
+        
+        if type(first) == ParserOperation:
+            if type(second) == ParserOperation and not second.first and first.first and first.second:
+                second.first = first
+                return second
+
+        return ParserError()
+
+    @staticmethod
+    def printObject(object):
+        if not object:
+            print("_ParserMerge<" , end="")
+            print(object, end="")
+            print(">")
+            return
+        
+        print("_ParserMerge" , end="")
+        print(object)
+
+class ParserBlock:
+    def __init__(self):
+        return
+    
+    @staticmethod
+    def isBlock(object):
+        return object.getValue() == "{"
+    
+    @staticmethod
+    def isCloseBlock(object):
+        return object.getValue() == '}'
+
+class Parser:
+    queue = 0
+
+    def __init__(self, queue):
+        self.queue = queue.copy()
+        self.queue.needsPersist(True)
+
+    @staticmethod
+    def isEndline(object):
+        return object.getToken() == LexerEnum.endline or object.getValue() == ';'
+
+    def execute(self):
+        if self.queue.isEmpty():
+            return ParserEmpty()
+    
+        object = self.queue.getHead()
+        self.queue.toRight()
+
+        if Parser.isEndline(object):
+            return ParserEmpty()
+
+        if ParserLineBlockUnstack.isLineBlockUnstack(object):
+            return ParserMerge.merge(ParserLineBlockUnstack(), self.execute())
+
+        if ParserLineBlock.isLineBlock(object):
+            return ParserMerge.merge(ParserLineBlock(), self.execute())
+
+        if ParserVariable.isVariable(object):
+            return ParserMerge.merge(ParserVariable(object), self.execute())
+        
+        if ParserOperator.isOperator(object):
+            return ParserMerge.merge(ParserOperator(object), self.execute())
+        
+        if ParserAssigment.isAssigment(object):
+            return ParserMerge.merge(ParserAssigment(object), self.execute())
+
+        if Parser.isKeyword(object):
+            return self.executeKeyword(object)
+
+        return ParserError()
+
+    def executeKeyword(self, keyword):
+        if keyword.getValue() == "if":
+            return self.blockIf()
+
+    def blockIf(self):
+        if self.queue.isEmpty():
+            return ParserError()
+    
+        object = self.queue.getHead()
+        self.queue.toRight()
+
+        if ParserBlock.isBlock(object):
+            return ParserEmpty()
+
+        if ParserLineBlockUnstack.isLineBlockUnstack(object):
+            return ParserMerge.merge(ParserLineBlockUnstack(), self.blockIf())
+
+        if ParserLineBlock.isLineBlock(object):
+            return ParserMerge.merge(ParserLineBlock(), self.blockIf())
+
+        if ParserVariable.isVariable(object):
+            return ParserMerge.merge(ParserVariable(object), self.blockIf())
+        
+        if ParserOperator.isOperator(object):
+            return ParserMerge.merge(ParserOperator(object), self.blockIf())
+        
+
+    @staticmethod
+    def isKeyword(object):
+        return object.getToken() == LexerEnum.keyword
+
+    @staticmethod
+    def isMergeValid(merged):
+        if type(merged) == ParserOperation and not merged.first:
+            return ParserError()
+        
+        return merged
+    
+    @staticmethod
+    def run():
+        print(Parser.isMergeValid(Parser(LexerQueue.shared()).execute()))
+        quit()
+
+"""
 @unique
 class ParserEnum(Enum):
     instruction = "INT"
@@ -23,6 +281,87 @@ class ParserEnum(Enum):
         
         return False
 
+class ParserOperator:
+    value = 0
+    type = 0
+
+    def __init__(self, object):
+        self.value = object.getValue()
+        self.type = object.getToken()
+    
+    def isLogical(self):
+        return compareToken(self.type, [LexerEnum.logical, LexerEnum.logical_operator])
+    
+    def isNumerical(self):
+        return compareToken(self.type, [LexerEnum.operator, LexerEnum.logical_operator])
+
+class ParserOperation:
+    right = 0
+    left = 0
+    operator = 0
+    
+    def __init__(self, right, left, operator):
+        self.right = right
+        self.left = left
+        self.operator = operator
+    
+    def isAssigment(self):
+        return self.operator.value == '='
+    
+class ParserVariable:
+    value = 0
+    type = 0
+
+    def __init__(self, object):
+        self.value = object.getValue()
+        self.type = object.getToken()
+
+    def isVariable(self):
+        return self.type == LexerEnum.id
+    
+    def isCarry(self):
+        return compareToken(object, [LexerEnum.integer, LexerEnum.float, LexerEnum.boolean])
+
+    def valueCanChange(self):
+        if not self.isVariable(self):
+            return False
+        
+        # Pegar na Hash se é var ou let
+        return True
+
+    @staticmethod
+    def create(object):
+        self = ParserVariable(object)
+        if self.isVariable() or self.isCarry():
+            return self
+        
+        return False
+
+class ParserLineBlockStack: # ( ou )
+    def __init__(self):
+        return
+
+class ParserLineBlockUnstack:
+    def __init__(self):
+        return
+
+class ParserMerge:
+    def __init__(self, first, second):
+        return
+
+class ParserErrorType(Enum):
+    variable=0
+    empty=0
+    assigment=0
+
+class ParserError:
+    token = 0
+    typeError = 0
+
+    def __init__(self, token, typeError):
+        self.token = token
+        self.typeError = typeError
+
 class Parser:
     queue = 0
     context = []
@@ -33,16 +372,15 @@ class Parser:
         self.queue.needsPersist(True)
     
     def isExpression(self, object, rightSide):
-        if compareToken(object, LexerEnum.id):
-            return self.shouldEnd(object, rightSide)
-        
-        if not rightSide:
-            return False
+        variable = ParserVariable(object)
 
-        if compareToken(object, [LexerEnum.integer, LexerEnum.float, LexerEnum.boolean]):
-            return self.shouldEnd(object, rightSide)
-            
-        return False
+        if not variable:
+            return ParserError(object, ParserErrorType.variable)
+
+        if variable.isCarry() and not rightSide:
+            return ParserError(object, ParserErrorType.assigment)      
+
+        return ParserMerge(variable, self.shouldEnd(rightSide))
 
     def isContext(self, context):
         if not len(self.context):
@@ -50,23 +388,22 @@ class Parser:
         
         return self.context[-1] == context
 
-    def shouldEnd(self, prevObject, rightSide):
-        #object = self.queue.toRight()
+    def shouldEnd(self, rightSide, variable=0):        
         object = self.queue.getHead()
         self.queue.toRight()
 
         if object.getValue() == ')' and self.isContext(ParserEnum.runtimeBlock):
             self.queue.toLeft()
-            return True
+            return ParserLineBlockUnstack()
 
         if compareToken(object, [LexerEnum.logical, LexerEnum.logical_operator]):
-            return self.isOperator(rightSide)
+            return self.isOperator(object, rightSide)
 
         if self.isContext(ParserEnum.logical):
             return False
 
         if compareToken(object, [LexerEnum.operator, LexerEnum.logical_operator]):
-            return self.isOperator(rightSide)
+            return self.isOperator(object, rightSide)
         
         if compareToken(object, LexerEnum.assigment):
             return self.isAssigment(rightSide)
@@ -79,7 +416,9 @@ class Parser:
         
         return False
 
-    def isOperator(self, rightSide):
+    def isOperator(self, object, rightSide):
+        operator = ParserOperator(object)
+
         object = self.queue.getHead()
         self.queue.toRight()
 
@@ -108,7 +447,7 @@ class Parser:
         object = self.queue.getHead()
         if compareToken(object, [LexerEnum.operator, LexerEnum.logical_operator]):
             self.queue.toRight()
-            return ret and self.isOperator(True)
+            return ret and self.isOperator(object, True)
         
         return ret
 
@@ -184,10 +523,23 @@ class Parser:
 
         return flag
 
+    def isVariable(self, value):
+        object = self.queue.getHead()
+        self.queue.toRight()
+
+        self.isExpression(object, False)
+
+        print(object.getValue())
+        quit()
+
     def isKeyword(self, object):
         value = object.getValue()
         if value == "if":
             return self.isLogicalBlock()
+        if value == "var":
+            return self.isVariable(value)
+        if value == "let":
+            return self.isVariable(value)
 
     def isLogicalBlock(self):
         while True:
@@ -297,8 +649,10 @@ class Parser:
                 break
         print("\n")
 
+"""
 def compareToken(object, values):
     return LexerEnum.compare(object, values)
-
+"""
 def compareContext(object, values):
     return ParserEnum.compare(object, values)
+    """

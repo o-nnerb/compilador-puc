@@ -121,7 +121,7 @@ class Lexer:
         if string == "or" or string == "and":
             return (True, LexerEnum.logical_operator)
 
-        if bool(re.match("(?:if|else|while|func|return|for|in)", string)) == False:
+        if bool(re.match("(?:if|else|while|func|return|for|in|var|let)", string)) == False:
             return (False, False)
 
         return (True, LexerEnum.keyword)
@@ -181,7 +181,7 @@ class Lexer:
                 object = LexerToken(LexerEnum.endline, "end")
                 queue.insert(object)
                 if self.write_out:
-                    self.output.write(object.getToken() + "{"+object.getValue()+"}")
+                    self.output.write(object.getToken().value + "{"+object.getValue()+"}")
 
             if self.write_out:
                 self.output.write('\n')

@@ -145,14 +145,14 @@ class LexerQueue:
                 last = self.getHead()
                 self.toRight()
 
-                print(last.getToken() + "<" + last.getValue() + ">")
+                print(last.getToken().value + "<" + last.getValue() + ">")
 
             self.head = head
             return
         
         while not self.isEmpty():
             last = self.popFirst()
-            print(last.getToken() + "<" + last.getValue() + ">")
+            print(last.getToken().value + "<" + last.getValue() + ">")
 
 
 
