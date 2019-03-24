@@ -2,9 +2,26 @@ from .VariableType import VariableType
 import traceback
 from enum import Enum, unique
 
+class VariableDeclarationCast(Enum):
+    auto = "AUTO"
+    primitive = "PRIT"
+
 class VariableConstantType(Enum):
     var = 0
     let = 1
+
+    @staticmethod
+    def toConstantType(string):
+        if string == "let":
+            return VariableConstantType.let
+        if string == "var":
+            return VariableConstantType.var
+        
+        return 0
+
+    @staticmethod
+    def isConstantType(string):
+        return string == "let" or string == "var"
 
 class Variable:
     name = 0

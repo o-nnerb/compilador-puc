@@ -1,2 +1,3 @@
-ID{b}ASS{=}BOOL{true}DEL{;}ID{c}ASS{=}FLT{1.2}END{end}
-ID{a}ASS{=}ID{b}OPR{/}ID{c}END{end}
+KEY{while}INT{1}DEL{{}END{end}
+
+DEL{}}END{end}

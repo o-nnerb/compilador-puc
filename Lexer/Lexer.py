@@ -3,7 +3,19 @@ import os
 from .LexerEnum import LexerEnum
 from .LexerToken import LexerToken
 from .LexerQueue import LexerQueue
-from .LexerHash import LexerHash
+
+from Interpreter.Variable.VariableType import VariableType
+
+# re.match("(?:if|else|while|func|return|for|in|var|let)", string
+class LexerKeyword:
+    keywords = ['if', 'else', 'while', 'func', 'return', 'for', 'in', 'var', 'let']
+    @staticmethod
+    def isKeyword(string):
+        for keyword in LexerKeyword.keywords:
+            if keyword == string:
+                return True
+                
+        return False
 
 class Lexer:
     file = 0
@@ -103,7 +115,7 @@ class Lexer:
     
     @staticmethod
     def isDelimitador(imin, line):
-        if bool(re.match("(?:\(|\)|\;|\,|\.|\{|\})", line[imin])) == False:
+        if bool(re.match("(?:\(|\)|\;|\:|\,|\.|\{|\})", line[imin])) == False:
             return (imin-1, False)
 
         return (imin, LexerEnum.delimiter)
@@ -121,7 +133,10 @@ class Lexer:
         if string == "or" or string == "and":
             return (True, LexerEnum.logical_operator)
 
-        if bool(re.match("(?:if|else|while|func|return|for|in)", string)) == False:
+        if VariableType.isPrimitive(string):
+            return (True, LexerEnum.primitive)
+
+        if not LexerKeyword.isKeyword(string):
             return (False, False)
 
         return (True, LexerEnum.keyword)
@@ -147,7 +162,6 @@ class Lexer:
     def parse(self):
         iline = 0
         queue = LexerQueue.shared()
-        hash = LexerHash.shared()
         lineHasInstruction = False
         for line in self.file:
             iline += 1
@@ -168,9 +182,6 @@ class Lexer:
                     object = LexerToken(token, value)
                     queue.insert(object)
 
-                    if token == LexerEnum.id:
-                        hash.insert(object)
-
                     if self.write_out:
                         self.output.write(token.value+'{'+value+'}')
                     
@@ -181,7 +192,7 @@ class Lexer:
                 object = LexerToken(LexerEnum.endline, "end")
                 queue.insert(object)
                 if self.write_out:
-                    self.output.write(object.getToken() + "{"+object.getValue()+"}")
+                    self.output.write(object.getToken().value + "{"+object.getValue()+"}")
 
             if self.write_out:
                 self.output.write('\n')

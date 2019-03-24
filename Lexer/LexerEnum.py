@@ -20,6 +20,8 @@ class LexerEnum(Enum):
     keyword = "KEY"
     endline = "END"
 
+    primitive = "PRI"
+
     forloop = "FOR" # {..., ...<} (não implementado)
 
     error = "ERR"
@@ -27,12 +29,12 @@ class LexerEnum(Enum):
 
     @staticmethod
     def compare(object, values):
-        string = object.getToken()
+        token = object.getToken()
         if type(values) != list:
-            return string == values.value
+            return token == values
         
-        for val in values:
-            if string == val.value:
+        for value in values:
+            if token == value:
                 return True
         
         return False

@@ -137,7 +137,7 @@ class LexerQueue:
             node = node.getNext()
         return queue
 
-    def verbose(self):
+    def verbose(self, showContent=True):
         if self.save:
             head = self.head
             self.toFirst()
@@ -145,14 +145,20 @@ class LexerQueue:
                 last = self.getHead()
                 self.toRight()
 
-                print(last.getToken() + "<" + last.getValue() + ">")
+                if showContent:
+                    print(last.getToken().value + "<" + last.getValue() + ">")
+                else:
+                    print(last)
 
             self.head = head
             return
         
         while not self.isEmpty():
             last = self.popFirst()
-            print(last.getToken() + "<" + last.getValue() + ">")
+            if showContent:
+                print(last.getToken().value + "<" + last.getValue() + ">")
+            else:
+                print(last)
 
 
 
