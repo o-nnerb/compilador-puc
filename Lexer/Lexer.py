@@ -121,7 +121,7 @@ class Lexer:
         if string == "or" or string == "and":
             return (True, LexerEnum.logical_operator)
 
-        if bool(re.match("(?:if|else|while|func|return|for|in|var|let)", string)) == False:
+        if not LexerKeyword.isKeyword(string):
             return (False, False)
 
         return (True, LexerEnum.keyword)

@@ -77,6 +77,51 @@ class ParserLineBlockUnstack:
     def isLineBlockUnstack(object):
         return object.getValue() == ')'
 
+class ParserKeyword:
+    def __init__(self):
+        return
+
+class ParserBlock:
+    block = 0
+    
+    def __init__(self):
+        return
+    
+    def setBlock(self, block):
+        self.block = block
+
+    @staticmethod
+    def isBlock(object):
+        return object.getValue() == "{"
+    
+    @staticmethod
+    def isCloseBlock(object):
+        return object.getValue() == '}'
+
+class ParserIf(ParserBlock):
+    value = 0
+
+    elseBlock = 0
+
+    def __init__(self, value):
+        self.value = value
+        super(ParserIf, self).__init__()
+
+    @staticmethod
+    def isElseBlock(object):
+        return object.getValue() == "else"
+
+    @staticmethod
+    def isIfBlock(object):
+        return object.getValue() == "if"
+
+class ParserElse(ParserBlock):
+    ifBlock = 0
+    block = 0
+
+    def __init__(self):
+        super(ParserElse, self).__init__()
+
 class ParserEmpty:
     def __init__(self):
         return
@@ -123,15 +168,20 @@ class ParserMerge:
                 second.first = first
                 return second
 
-            if type(second) == ParserOperation:
+            if type(second) == ParserOperation and not second.first:
                 second.first = first
                 return second
         
         if type(first) == ParserLineBlock:
             if type(second) == ParserLineBlockUnstack:
-                if second.getBefore():
-                    return ParserMerge.merge(second.getValue(), second.getBefore())
-                return second.getValue()
+                if second.getValue():
+                    if type(second.getValue()) == ParserOperation and not second.getValue().first:
+                        return ParserError()
+
+                    if second.getBefore():
+                        return ParserMerge.merge(second.getValue(), second.getBefore())
+                    return second.getValue()
+                return ParserEmpty()
 
         if type(second) == ParserLineBlockUnstack:
             if not second.getValue():
@@ -152,6 +202,23 @@ class ParserMerge:
                 second.first = first
                 return second
 
+        if type(first) == ParserIf:
+            if type(second) == LexerQueue:
+                first.setBlock(second)
+                return first
+
+            if type(second) == ParserElse:
+                first.elseBlock = second
+                return first
+
+        if type(first) == ParserElse:
+            if type(second) == LexerQueue:
+                first.setBlock(second)
+                return first
+            if type(second) == ParserIf:
+                first.ifBlock = second
+                return first
+
         return ParserError()
 
     @staticmethod
@@ -165,18 +232,6 @@ class ParserMerge:
         print("_ParserMerge" , end="")
         print(object)
 
-class ParserBlock:
-    def __init__(self):
-        return
-    
-    @staticmethod
-    def isBlock(object):
-        return object.getValue() == "{"
-    
-    @staticmethod
-    def isCloseBlock(object):
-        return object.getValue() == '}'
-
 class Parser:
     queue = 0
 
@@ -187,6 +242,33 @@ class Parser:
     @staticmethod
     def isEndline(object):
         return object.getToken() == LexerEnum.endline or object.getValue() == ';'
+    
+    @staticmethod
+    def toParse(object, callback, types, notFound):
+        for type in types:
+            if type == ParserLineBlockUnstack and ParserLineBlockUnstack.isLineBlockUnstack(object):
+                return ParserMerge.merge(ParserLineBlockUnstack(), callback())
+
+            if type == ParserLineBlock and ParserLineBlock.isLineBlock(object):
+                return ParserMerge.merge(ParserLineBlock(), callback())
+            
+            if type == ParserVariable and ParserVariable.isVariable(object):
+                return ParserMerge.merge(ParserVariable(object), callback())
+            
+            if type == ParserOperator and ParserOperator.isOperator(object):
+                return ParserMerge.merge(ParserOperator(object), callback())
+
+            if type == ParserAssigment and ParserAssigment.isAssigment(object):
+                return ParserMerge.merge(ParserAssigment(object), callback())
+            
+            if type == ParserKeyword and Parser.isKeyword(object):
+                return ParserKeyword()
+            
+            if type == ParserBlock and ParserBlock.isBlock(object):
+                return ParserEmpty()
+            
+        return notFound()
+
 
     def execute(self):
         if self.queue.isEmpty():
@@ -198,29 +280,48 @@ class Parser:
         if Parser.isEndline(object):
             return ParserEmpty()
 
-        if ParserLineBlockUnstack.isLineBlockUnstack(object):
-            return ParserMerge.merge(ParserLineBlockUnstack(), self.execute())
-
-        if ParserLineBlock.isLineBlock(object):
-            return ParserMerge.merge(ParserLineBlock(), self.execute())
-
-        if ParserVariable.isVariable(object):
-            return ParserMerge.merge(ParserVariable(object), self.execute())
+        parsed = Parser.toParse(object, self.execute, [
+            ParserLineBlockUnstack,
+            ParserLineBlock,
+            ParserVariable,
+            ParserOperator,
+            ParserAssigment,
+            ParserKeyword,
+        ], ParserError)
         
-        if ParserOperator.isOperator(object):
-            return ParserMerge.merge(ParserOperator(object), self.execute())
-        
-        if ParserAssigment.isAssigment(object):
-            return ParserMerge.merge(ParserAssigment(object), self.execute())
+        if type(parsed) == ParserKeyword:
+            return ParserMerge.merge(self.executeKeyword(object), self.execute())
 
-        if Parser.isKeyword(object):
-            return self.executeKeyword(object)
-
-        return ParserError()
+        return parsed
 
     def executeKeyword(self, keyword):
-        if keyword.getValue() == "if":
-            return self.blockIf()
+        if ParserIf.isIfBlock(keyword):
+            return self.isIfValid(Parser.isMergeValid(self.blockIf()))
+
+    def isIfValid(self, merged):
+        if type(merged) == ParserError:
+            return merged
+        
+        if type(merged) == ParserEmpty:
+            return ParserError()
+
+        merged = ParserMerge.merge(ParserIf(merged), self.block())
+
+        if type(merged) == ParserIf:
+            if ParserIf.isElseBlock(self.queue.getHead()):
+                self.queue.toRight()
+
+                if ParserBlock.isBlock(self.queue.getHead()):
+                    self.queue.toRight()
+                    return ParserMerge.merge(merged, ParserMerge.merge(ParserElse(), self.block()))
+                
+                if ParserIf.isIfBlock(self.queue.getHead()):
+                    self.queue.toRight()
+                    return ParserMerge.merge(merged, ParserMerge.merge(ParserElse(), self.isIfValid(Parser.isMergeValid(self.blockIf()))))
+                
+                return ParserError()
+
+        return merged
 
     def blockIf(self):
         if self.queue.isEmpty():
@@ -229,22 +330,32 @@ class Parser:
         object = self.queue.getHead()
         self.queue.toRight()
 
-        if ParserBlock.isBlock(object):
-            return ParserEmpty()
+        return Parser.toParse(object, self.blockIf, [
+            ParserBlock,
+            ParserLineBlockUnstack,
+            ParserLineBlock,
+            ParserVariable,
+            ParserOperator
+        ], ParserError)
 
-        if ParserLineBlockUnstack.isLineBlockUnstack(object):
-            return ParserMerge.merge(ParserLineBlockUnstack(), self.blockIf())
-
-        if ParserLineBlock.isLineBlock(object):
-            return ParserMerge.merge(ParserLineBlock(), self.blockIf())
-
-        if ParserVariable.isVariable(object):
-            return ParserMerge.merge(ParserVariable(object), self.blockIf())
+    def block(self):
+        object = self.queue.getHead()
+        self.queue.toRight()
         
-        if ParserOperator.isOperator(object):
-            return ParserMerge.merge(ParserOperator(object), self.blockIf())
-        
+        instructions = LexerQueue()
 
+        while object and not ParserBlock.isCloseBlock(object):
+            line = Parser.isMergeValid(self.execute())
+            if type(line) == ParserError:
+                instructions = line
+                break
+
+            instructions.insert(line)
+            object = self.queue.getHead()
+            self.queue.toRight()
+
+        return instructions        
+        
     @staticmethod
     def isKeyword(object):
         return object.getToken() == LexerEnum.keyword
@@ -258,7 +369,20 @@ class Parser:
     
     @staticmethod
     def run():
-        print(Parser.isMergeValid(Parser(LexerQueue.shared()).execute()))
+        parser = Parser(LexerQueue.shared())
+        instructions = LexerQueue()
+
+        while not parser.queue.isEmpty():
+            line = Parser.isMergeValid(parser.execute())
+            if type(line) == ParserError:
+                instructions = line
+                break
+
+            instructions.insert(line)
+            object = parser.queue.getHead()
+            parser.queue.toRight()
+
+        print(line)
         quit()
 
 """
