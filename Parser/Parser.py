@@ -1,8 +1,13 @@
 from Lexer.LexerEnum import LexerEnum
 from Lexer.LexerQueue import LexerQueue
 from Lexer.LexerToken import LexerToken
+from Lexer.LexerHash import LexerHash
 from .ParserTree import ParserTree
+
+from Interpreter.Variable.Variable import VariableConstantType, VariableDeclarationCast
+
 from enum import Enum, unique
+
 
 class ParserVariable(LexerToken):
     def __init__(self, value):
@@ -122,6 +127,38 @@ class ParserElse(ParserBlock):
     def __init__(self):
         super(ParserElse, self).__init__()
 
+class ParserDeclarationVariable:
+    variable = 0
+    type = 0
+    varType = 0
+
+    def __init__(self, variable, type, varType):
+        self.variable = variable
+        self.type = type
+        self.varType = varType
+    
+    @staticmethod
+    def isDeclarationVariable(object):
+        return VariableConstantType.isConstantType(object.getValue())
+
+class ParserDeclarationExplicit:
+    def __init__(self):
+        return
+    
+    @staticmethod
+    def isExplicit(object):
+        return object.getValue() == ":"
+
+class ParserVariableType:
+    type = 0
+
+    def __init__(self, type):
+        self.type = type
+    
+    @staticmethod
+    def isVariableType(object):
+        return object.getToken() == LexerEnum.primitive
+
 class ParserEmpty:
     def __init__(self):
         return
@@ -171,6 +208,10 @@ class ParserMerge:
             if type(second) == ParserOperation and not second.first:
                 second.first = first
                 return second
+            
+            if type(second) == ParserDeclarationVariable and type(second.variable) == ParserOperationAssigment:
+                second.variable = ParserMerge.merge(first, second.variable)
+                return second
         
         if type(first) == ParserLineBlock:
             if type(second) == ParserLineBlockUnstack:
@@ -190,7 +231,6 @@ class ParserMerge:
             
             second.setValue(ParserMerge.merge(first, second.getValue()))
             return second
-
         
         if type(first) == ParserLineBlockUnstack:
             if type(second) == ParserOperation and not second.first:
@@ -218,6 +258,15 @@ class ParserMerge:
             if type(second) == ParserIf:
                 first.ifBlock = second
                 return first
+
+        if type(first) == ParserVariableType:
+            if type(second) == ParserOperationAssigment:
+                return ParserDeclarationVariable(second, first, 0)
+
+        if type(first) == ParserDeclarationExplicit:
+            if type(second) == ParserDeclarationVariable:
+                if second.variable and second.type:
+                    return second
 
         return ParserError()
 
@@ -266,9 +315,14 @@ class Parser:
             
             if type == ParserBlock and ParserBlock.isBlock(object):
                 return ParserEmpty()
+
+            if type == ParserDeclarationExplicit and ParserDeclarationExplicit.isExplicit(object):
+                return ParserMerge.merge(ParserDeclarationExplicit(), callback())
+
+            if type == ParserVariableType and ParserVariableType.isVariableType(object):
+                return ParserMerge.merge(ParserVariableType(object), callback())
             
         return notFound()
-
 
     def execute(self):
         if self.queue.isEmpty():
@@ -290,13 +344,28 @@ class Parser:
         ], ParserError)
         
         if type(parsed) == ParserKeyword:
-            return ParserMerge.merge(self.executeKeyword(object), self.execute())
+            return Parser.keywordMerge(self.executeKeyword(object), self.execute)
 
         return parsed
 
     def executeKeyword(self, keyword):
         if ParserIf.isIfBlock(keyword):
             return self.isIfValid(Parser.isMergeValid(self.blockIf()))
+        
+        if ParserDeclarationVariable.isDeclarationVariable(keyword):
+            return self.isDeclarationValid(keyword, Parser.isMergeValid(self.declarationLine()))
+
+    # ParserDeclarationVariable
+    # ParserOperationAssigment
+    def isDeclarationValid(self, keyword, merged):
+        print(merged)
+        if type(merged) == ParserOperationAssigment:
+            return ParserDeclarationVariable(merged, VariableDeclarationCast.auto, VariableConstantType.toConstantType(keyword))
+        if type(merged) == ParserDeclarationVariable:
+            merged.varType = VariableConstantType.toConstantType(keyword)
+            return merged
+
+        return ParserError()
 
     def isIfValid(self, merged):
         if type(merged) == ParserError:
@@ -338,6 +407,26 @@ class Parser:
             ParserOperator
         ], ParserError)
 
+    def declarationLine(self):    
+        if self.queue.isEmpty():
+            return ParserEmpty()
+    
+        object = self.queue.getHead()
+        self.queue.toRight()
+
+        if Parser.isEndline(object):
+            return ParserEmpty()
+
+        return Parser.toParse(object, self.declarationLine, [
+            ParserLineBlockUnstack,
+            ParserLineBlock,
+            ParserVariable,
+            ParserDeclarationExplicit,
+            ParserVariableType,
+            ParserOperator,
+            ParserAssigment
+        ], ParserError)
+        
     def block(self):
         object = self.queue.getHead()
         self.queue.toRight()
@@ -368,6 +457,13 @@ class Parser:
         return merged
     
     @staticmethod
+    def keywordMerge(merged, callback):
+        if type(merged) == ParserDeclarationVariable:
+            return merged
+
+        return ParserMerge.merge(merged, callback())
+
+    @staticmethod
     def run():
         parser = Parser(LexerQueue.shared())
         instructions = LexerQueue()
@@ -375,14 +471,14 @@ class Parser:
         while not parser.queue.isEmpty():
             line = Parser.isMergeValid(parser.execute())
             if type(line) == ParserError:
-                instructions = line
+                print(line)
+                quit()
                 break
 
             instructions.insert(line)
-            object = parser.queue.getHead()
-            parser.queue.toRight()
-
-        print(line)
+        
+        print("Lista de Instruções")
+        instructions.verbose(showContent=False)
         quit()
 
 """

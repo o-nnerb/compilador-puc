@@ -1,1 +1,3 @@
-KEY{if}DEL{(}INT{1}DEL{)}DEL{{}DEL{}}END{end}
+KEY{while}INT{1}DEL{{}END{end}
+
+DEL{}}END{end}

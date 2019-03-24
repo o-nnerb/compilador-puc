@@ -20,6 +20,8 @@ class LexerEnum(Enum):
     keyword = "KEY"
     endline = "END"
 
+    primitive = "PRI"
+
     forloop = "FOR" # {..., ...<} (não implementado)
 
     error = "ERR"

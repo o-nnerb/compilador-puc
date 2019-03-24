@@ -22,15 +22,28 @@ class VariableType(Enum):
 
     def name(self):
         if self == VariableType.nil:
-            return "Nil"
+            return "nil"
         if self == VariableType.string:
-            return "String"
+            return "string"
         if self == VariableType.integer:
-            return "Integer"
+            return "integer"
         if self == VariableType.float:
-            return "Float"
+            return "float"
         if self == VariableType.boolean:
-            return "Boolean"
+            return "boolean"
         if self == VariableType.number:
-            return "Number"
+            return "number"
         return ""
+
+    @staticmethod
+    def isPrimitive(string):
+        if string == "string":
+            return VariableType.string
+        if string == "integer":
+            return VariableType.integer
+        if string == "float":
+            return VariableType.float
+        if string == "boolean":
+            return VariableType.boolean
+
+        return 0
