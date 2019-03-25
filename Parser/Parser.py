@@ -28,6 +28,31 @@ class ParserOperator(LexerToken):
     def isOperator(object):
         return compareToken(object, [LexerEnum.operator, LexerEnum.logical, LexerEnum.logical_operator])
 
+class ParserPFixOperator(LexerToken):
+    def __init__(self, value):
+        super(ParserPFixOperator, self).__init__(value.getToken(), value.getValue())
+
+    @staticmethod
+    def isPFixOperator(object):
+        return compareToken(object, LexerEnum.operator_pfix)
+
+@unique
+class ParserFixType(Enum):
+    none = 0
+    prefix = 1
+    posfix = 2
+
+    @staticmethod
+    def isPrefix(object):
+        return ParserFixType.prefix
+    
+    @staticmethod
+    def isPosfix(object):
+        if object.getValue() != "!":
+            return ParserFixType.posfix
+
+        return ParserFixType.none
+
 class ParserAssigment(ParserOperator):
     def __init__(self, value):
         super(ParserAssigment, self).__init__(value)
@@ -45,6 +70,24 @@ class ParserOperation:
         self.first = first
         self.second = second
         self.operator = operator
+    
+class ParserFixOperation:
+    variable = 0
+    operator = 0
+    fixType = 0
+    
+    def __init__(self, variable, operator, fixType):
+        self.variable = variable
+        self.operator = operator
+        self.fixType = fixType
+
+class ParserOperationFixParcial:
+    first = 0
+    second = 0
+
+    def __init__(self, first, second):
+        self.first = first
+        self.second = second
 
 class ParserOperationAssigment(ParserOperation):
     def __init__(self, first, second, operator):
@@ -261,9 +304,15 @@ class ParserMerge:
             
             if type(second) == ParserOperation and second.first:
                 return ParserOperationAssigment(0, second, first)
+
+            if type(second) == ParserFixOperation:
+                return ParserOperationAssigment(0, second, first)
         
         if type(first) == ParserOperator:
             if type(second) == ParserVariable:
+                return ParserOperation(0, second, first)
+                
+            if type(second) == ParserFixOperation:
                 return ParserOperation(0, second, first)
             
             if type(second) == ParserOperation and second.first:
@@ -296,6 +345,16 @@ class ParserMerge:
 
                 second.variable = first
                 return second
+            
+            if type(second) == ParserPFixOperator:
+                fixType = ParserFixType.isPosfix(second)
+                if fixType != ParserFixType.none:
+                    return ParserFixOperation(first, second, fixType)
+
+            if type(second) == ParserOperationFixParcial:
+                if type(second.first) == ParserPFixOperator and type(second.second) == ParserOperation and not second.second.first:
+                    second.second.first = ParserMerge.merge(first, second.first)
+                    return second.second
         
         if type(first) == ParserLineBlock:
             if type(second) == ParserLineBlockUnstack:
@@ -323,6 +382,20 @@ class ParserMerge:
         
         if type(first) == ParserOperation:
             if type(second) == ParserOperation and not second.first and first.first and first.second:
+                second.first = first
+                return second
+            
+        if type(first) == ParserPFixOperator:
+            if type(second) == ParserVariable and second.isStoreVariable():
+                fixType = ParserFixType.isPrefix(first)
+                if fixType != ParserFixType.none:
+                    return ParserFixOperation(first, second, fixType)
+                
+            if type(second) == ParserOperation and not second.first:
+                return ParserOperationFixParcial(first, second)
+
+        if type(first) == ParserFixOperation:
+            if type(second) == ParserOperation and not second.first and second.operator and second.second:
                 second.first = first
                 return second
 
@@ -430,6 +503,9 @@ class Parser:
             if type == ParserOperatorForIn and ParserOperatorForIn.isInOperator(object):
                 return ParserMerge.merge(ParserOperatorForIn(object), callback())
             
+            if type == ParserPFixOperator and ParserPFixOperator.isPFixOperator(object):
+                return ParserMerge.merge(ParserPFixOperator(object), callback())
+            
         return notFound()
 
     def execute(self):
@@ -447,6 +523,7 @@ class Parser:
             ParserLineBlock,
             ParserVariable,
             ParserOperator,
+            ParserPFixOperator,
             ParserAssigment,
             ParserKeyword,
         ], ParserError)
@@ -541,7 +618,8 @@ class Parser:
             ParserLineBlockUnstack,
             ParserLineBlock,
             ParserVariable,
-            ParserOperator
+            ParserOperator,
+            ParserPFixOperator
         ], ParserError)
 
     def blockFor(self):
@@ -575,6 +653,7 @@ class Parser:
             ParserDeclarationExplicit,
             ParserVariableType,
             ParserOperator,
+            ParserPFixOperator,
             ParserAssigment
         ], ParserError)
         
@@ -605,6 +684,14 @@ class Parser:
         return object.getToken() == LexerEnum.keyword
 
     @staticmethod
+    def notAccepted(merged, types):
+        for _type in types:
+            if type(merged) == _type:
+                return ParserError()
+            
+        return ParserEmpty()
+
+    @staticmethod
     def isMergeValid(merged):
         if type(merged) == ParserOperation and not merged.first:
             return ParserError()
@@ -612,6 +699,16 @@ class Parser:
         if type(merged) == ParserOperationAssigment and not merged.first:
             return ParserError()
         
+        notAccepted = Parser.notAccepted(merged, [
+            ParserOperationFixParcial,
+            ParserPFixOperator,
+            ParserLineBlockUnstack,
+            ParserLineBlock,
+        ])
+        
+        if type(notAccepted) == ParserError:
+            return notAccepted
+
         return merged
     
     @staticmethod

@@ -22,7 +22,7 @@ class Lexer:
     output = 0
     write_out = False
     line = ""
-
+    
     def __init__(self, fileURL, args):
         self.file = open(fileURL, "r")
         for arg in args:
@@ -38,28 +38,45 @@ class Lexer:
             exit()
 
     @staticmethod
-    def isId(imin, line):
+    def charAt(index):
+        if len(Lexer.line) <= index:
+            return ""
+        
+        return Lexer.line[index]
+    
+    @staticmethod
+    def charRange(fromIndex, toIndex):
+        if fromIndex == toIndex:
+            return ""
+
+        if len(Lexer.line) <= fromIndex:
+            return ""
+        
+        return Lexer.charAt(fromIndex) + Lexer.charRange(fromIndex+1, toIndex)
+
+    @staticmethod
+    def isId(imin):
         i = imin
-        while i < len(line):
-            if bool(re.match("[a-zA-Z]", line[i])) == False:
-                if i == imin or bool(re.match("[0-9]", line[i])) == False:
+        while i < len(Lexer.line):
+            if bool(re.match("[a-zA-Z]", Lexer.charAt(i))) == False:
+                if i == imin or bool(re.match("[0-9]", Lexer.charAt(i))) == False:
                     return (i - 1, LexerEnum.id)
             i += 1
 
         return (i - 1, LexerEnum.id)
 
     @staticmethod
-    def isNum(imin, line):
+    def isNum(imin):
         i = imin
         isFloat = False
-        while i < len(line):
-            if bool(re.match("[0-9]", line[i])) == False:
-                if (i+1)==len(line) or line[i] != "." or bool(re.match("[0-9]",line[i+1])) == False:
+        while i < len(Lexer.line):
+            if bool(re.match("[0-9]", Lexer.charAt(i))) == False:
+                if (i+1)==len(Lexer.line) or Lexer.charAt(i) != "." or bool(re.match("[0-9]", Lexer.charAt(i+1))) == False:
                     if isFloat:
                         return (i-1, LexerEnum.float)
                     return (i-1, LexerEnum.integer)
 
-                isFloat |= line[i] == "."
+                isFloat |= Lexer.charAt(i) == "."
             i += 1
         
         if isFloat:
@@ -67,64 +84,73 @@ class Lexer:
         return (i-1, LexerEnum.integer)
 
     @staticmethod
-    def isNeg(imin, line):
-        if line[imin] != "!":
+    def isNeg(imin):
+        if Lexer.charAt(imin) != "!":
             return (imin-1, False)
             
-        if line[imin+1] != "=":
-            return (imin, LexerEnum.operator_prefix)
+        if Lexer.charAt(imin+1) != "=":
+            return (imin, LexerEnum.operator_pfix)
 
         return (imin+1, LexerEnum.logical)
 
     @staticmethod
-    def isEqual(imin, line):
-        if line[imin] != "=":
+    def isEqual(imin):
+        if Lexer.charAt(imin) != "=":
             return (imin-1, False)
             
-        if line[imin+1] != "=":
+        if Lexer.charAt(imin+1) != "=":
             return (imin, LexerEnum.assigment)
 
         return (imin+1, LexerEnum.logical)
 
     @staticmethod
-    def isGreater(imin, line):
-        if line[imin] != ">":
+    def isGreater(imin):
+        if Lexer.charAt(imin) != ">":
             return (imin - 1, False)
         
-        if line[imin+1] == "=":
+        if Lexer.charAt(imin+1) == "=":
             return (imin+1, LexerEnum.logical)
         
-        if line[imin+1] == ".":
-            if line[imin+2] == ".":
+        if Lexer.charAt(imin+1) == ".":
+            if Lexer.charAt(imin+2) == ".":
                 return (imin+2, LexerEnum.operator_range)
 
         return (imin, LexerEnum.logical)
 
     @staticmethod 
-    def isLess(imin, line):
-        if line[imin] != "<":
+    def isLess(imin):
+        if Lexer.charAt(imin) != "<":
             return (imin - 1, False)
         
-        if line[imin+1] != "=":
+        if Lexer.charAt(imin+1) != "=":
             return (imin, LexerEnum.logical)
 
         return (imin+1, LexerEnum.logical)
 
     @staticmethod
-    def isOperator(imin, line):
-        if bool(re.match("(?:\+|\*|\%|\-|\/|\^)", line[imin])) == False:
+    def isOperator(imin):
+        if Lexer.charAt(imin) == "+":
+            if Lexer.charAt(imin+1) == "+":
+                return (imin+1, LexerEnum.operator_pfix)
+            return (imin, LexerEnum.operator)
+
+        if Lexer.charAt(imin) == "-":
+            if Lexer.charAt(imin+1) == "-":
+                return (imin+1, LexerEnum.operator_pfix)
+            return (imin, LexerEnum.operator)
+        if bool(re.match("(?:\*|\%|\/|\^)", Lexer.charAt(imin))) == False:
             return (imin-1, False)
 
         return (imin, LexerEnum.operator)
     
     @staticmethod
-    def isDelimitador(imin, line):
-        if line[imin] == ".":
-            if line[imin+1] == ".":
-                if line[imin+2] == "<" or line[imin+2] == ".":
+    def isDelimitador(imin):
+        if Lexer.charAt(imin) == ".":
+            if Lexer.charAt(imin+1) == ".":
+                if Lexer.charAt(imin+2) == "<" or Lexer.charAt(imin+2) == ".":
                     return (imin+2, LexerEnum.operator_range)
 
-        if bool(re.match("(?:\(|\)|\;|\:|\,|\.|\{|\})", line[imin])) == False:
+        if bool(re.match("(?:\(|\)|\;|\:|\,|\.|\{|\})", Lexer.charAt(imin))) == False:
             return (imin-1, False)
 
         return (imin, LexerEnum.delimiter)
@@ -154,10 +180,10 @@ class Lexer:
         return (True, LexerEnum.keyword)
 
     @staticmethod
-    def parseLine(imin, line):
-        (imax, context) = Lexer.isId(imin, line)
+    def parseLine(imin):
+        (imax, context) = Lexer.isId(imin)
         if imax >= imin:
-            (isKeyword, keyContext) = Lexer.isKeyword(line[imin:imax+1])
+            (isKeyword, keyContext) = Lexer.isKeyword(Lexer.charRange(imin, imax+1))
             if isKeyword:
                 return (imax, keyContext)
             return (imax, context)
@@ -165,8 +191,9 @@ class Lexer:
         functions = [Lexer.isNum, Lexer.isNeg, Lexer.isEqual, Lexer.isGreater, Lexer.isLess, Lexer.isOperator, Lexer.isDelimitador]
 
         for func in functions:
-            (imax, context) = func(imin, line)
+            (imax, context) = func(imin)
             if imax >= imin:
+                print(imax)
                 return (imax, context)
 
         return (imin-1, False)
@@ -176,21 +203,22 @@ class Lexer:
         queue = LexerQueue.shared()
         lineHasInstruction = False
         for line in self.file:
+            Lexer.line = line
             iline += 1
             imin = 0
             lineHasInstruction = False
-            while imin < len(line):
-                (imax, token) = Lexer.parseLine(imin, line)
+            while imin < len(Lexer.line):
+                (imax, token) = Lexer.parseLine(imin)
                 if imax < imin:
-                    if line[imin] != '\t' and line[imin] != '\n' and line[imin] != ' ' and line[imin] != '\r':
+                    if Lexer.charAt(imin) != '\t' and Lexer.charAt(imin) != '\n' and Lexer.charAt(imin) != ' ' and Lexer.charAt(imin) != '\r':
                         # Save line and imin
-                        queue.insert(LexerToken(LexerEnum.lexer_error, line[imin]))
+                        queue.insert(LexerToken(LexerEnum.lexer_error, Lexer.charAt(imin)))
                         #if self.write_output:
-                        print('Error: compiler couldn\'t compreend this caracter (' + str(line[imin]) + ') on line ' + str(iline))
-                        print(line)
+                        print('Error: compiler couldn\'t compreend this caracter (' + str(Lexer.charAt(imin)) + ') on line ' + str(iline))
+                        print(Lexer.line)
                     imin += 1
                 else:
-                    value = line[imin:imax+1]
+                    value = Lexer.charRange(imin, imax+1)
                     object = LexerToken(token, value)
                     queue.insert(object)
 

@@ -1,3 +1,1 @@
-KEY{while}INT{1}DEL{{}END{end}
-
-DEL{}}END{end}
+OPR_PFIX{--}ID{a}END{end}

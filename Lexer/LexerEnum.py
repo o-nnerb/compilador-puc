@@ -10,8 +10,7 @@ class LexerEnum(Enum):
     
     operator = "OPR"
     logical_operator = "LOG_OPR"
-    operator_prefix = "OPR_PRE"
-    operator_posfix = "OPR_POS"
+    operator_pfix = "OPR_PFIX"
 
     delimiter = "DEL"
     logical = "LOG"
