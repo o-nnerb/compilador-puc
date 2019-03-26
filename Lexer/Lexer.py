@@ -137,6 +137,8 @@ class Lexer:
         if Lexer.charAt(imin) == "-":
             if Lexer.charAt(imin+1) == "-":
                 return (imin+1, LexerEnum.operator_pfix)
+            if Lexer.charAt(imin+1) == ">":
+                return (imin+1, LexerEnum.operator_return)
             return (imin, LexerEnum.operator)
         if bool(re.match("(?:\*|\%|\/|\^)", Lexer.charAt(imin))) == False:
             return (imin-1, False)
@@ -193,7 +195,6 @@ class Lexer:
         for func in functions:
             (imax, context) = func(imin)
             if imax >= imin:
-                print(imax)
                 return (imax, context)
 
         return (imin-1, False)

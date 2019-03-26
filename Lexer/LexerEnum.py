@@ -24,6 +24,8 @@ class LexerEnum(Enum):
     operator_range = "OPR_FIN"
     operator_in = "OPR_IN"
 
+    operator_return = "OPR_RET"
+
     error = "ERR"
     expression = "EXP"
 
