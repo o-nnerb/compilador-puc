@@ -304,6 +304,22 @@ class ParserFunc(ParserBlock):
     def isFuncBlock(object):
         return object.getValue() == "func"
 
+class ParserFunction:
+    name = 0
+    parameters = 0
+
+    def __init__(self, name, parameters):
+        self.name = name
+        self.parameters = parameters
+
+class ParserFutureFunction:
+    first = 0
+    second = 0
+
+    def __init__(self, first, second):
+        self.first = first
+        self.second = second
+
 class ParserFuncVariable(ParserVariable):
     def __init__(self, value):
         super(ParserFuncVariable, self).__init__(value)
@@ -359,43 +375,6 @@ class ParserFuncParameterQueue:
 class ParserEmpty:
     def __init__(self):
         return
-
-class ParserFunctionExecutable(ParserVariable):
-    params = 0
-
-    def __init__(self, value, params):
-        self.params = params
-        super(ParserFunctionExecutable, self).__init__(value)
-
-    @staticmethod
-    def isFunction(object):
-        return compareToken(object, LexerEnum.id)
-
-class ParserFunctionParamAbstract:
-    def __init__(self):
-        return
-
-class ParserFunctionParam:
-    head = 0
-    next = 0
-    
-    def __init__(self, head, next):
-        self.head = head
-        self.next = next
-
-class ParserFunctionParamQueue:
-    queue = 0
-
-    def __init__(self, queue):
-        self.queue = queue
-
-class ParserFutureFunction:
-    lineBlock = 0
-    after = 0
-
-    def __init__(self, lineBlock, after):
-        self.lineBlock = lineBlock
-        self.after = after
 
 class ParserError:
     def __init__(self):
@@ -454,9 +433,8 @@ class ParserMerge:
             if type(second) == ParserLineBlock and second.isSomething():
                 return ParserOperation(0, second, first)
             
-            if type(second) == ParserFutureFunction and second.lineBlock.value:
-                return ParserMerge.merge(first, ParserMerge.merge(second.lineBlock.value, second.after))
-
+            if type(second) == ParserFunction:
+                return ParserOperation(0, second, first)
 
         if type(first) == ParserVariable:
             if type(second) == ParserOperationAssigment:
@@ -496,43 +474,18 @@ class ParserMerge:
                     second.second.first = ParserMerge.merge(first, second.first)
                     return second.second
             
-            if type(second) == ParserLineBlock:
-                print(second.value)
-                if ParserFunctionExecutable.isFunction(first):
-                    print(second.value)
-                    if not second.isSomething():
-                        return ParserFunctionExecutable(first, ParserFunctionParamQueue(0))
-
-                    if type(second.value) == ParserVariable:
-                        return ParserFunctionExecutable(first, ParserFunctionParamQueue(second.value))
-                    
-                    if type(second.value) == ParserFunctionExecutable:
-                        return ParserFunctionExecutable(first, ParserFunctionParamQueue(second.value))
-
-                #    function = ParserFunctionExecutable(first, 0)
-                #    if second.isSomething():
-                #        params = ParserMerge.merge(ParserFunctionParamAbstract(), second.value)
-                #        if type(params) == ParserError:
-                #            return params
-                #        function.params = params
-                #    return function
-                #else:
-                #    return ParserError()
-            if type(second) == ParserFutureFunction:
-                merged = ParserMerge.merge(first, second.lineBlock)
-                if type(merged) == ParserFunctionExecutable:
-                    return ParserMerge.merge(merged, second.after)
-
-            if type(second) == ParserFunctionParamQueue:
-                if ParserFunctionExecutable.isFunction(first):
-                    return ParserFunctionExecutable(first, second)
-
+            if type(second) == ParserLineBlock and first.isStoreVariable():
+                if type(second.value) == ParserEmpty:
+                    return ParserFunction(first, second.value)
+                return ParserError()
             
-            if type(second) == ParserFunctionParam:
-                merged = ParserMerge.merge(ParserFunctionParamAbstract(), first)
-                merged.next = second
-                return merged
+            if type(second) == ParserFutureFunction:
+                return ParserMerge.merge(ParserMerge.merge(first, second.first), second.second)
                     
+        if type(first) == ParserFunction:
+            if type(second) == ParserOperation and not second.first:
+                second.first = first
+                return second
         if type(first) == ParserLineBlockAbstract:
             if type(second) == ParserVariable:
                 return ParserLineBlock(second)
@@ -545,15 +498,7 @@ class ParserMerge:
             
             if type(second) == ParserFuncParameter:
                 return ParserFuncParameterQueue(second, 0)
-            
-            if type(second) == ParserFunctionParam and second.head:
-                return ParserFunctionParamQueue(second)
-                #if not second.getBefore():
-                #if type(second.getBefore()) == ParserFuncReturnType:
-                #    return ParserFuncParameterQueue(second.getValue(), second.getBefore())
-                #return second
-            if type(second) == ParserFunctionExecutable:
-                return ParserLineBlock(second)
+
 
         if type(second) == ParserLineBlockCarry:
             if not second.getValue():
@@ -580,11 +525,6 @@ class ParserMerge:
                         return ParserError()
                     return ParserFuncParameterQueue(second.getValue(), second.getAfter())
                 return second.getValue()
-            
-            if type(second.getValue()) == ParserFunctionExecutable:
-                if second.getAfter():
-                    return second.setValue(ParserMerge.merge(second.getValue(), second.getAfter()))
-                return second
 
             return second
 
@@ -596,15 +536,15 @@ class ParserMerge:
             if type(second) == ParserFuncReturnType:
                 first.setAfter(second)
                 return first
+            
+        if type(first) == ParserLineBlock:
+            if type(second) == ParserOperation and not second.first:
+                return ParserFutureFunction(first, second)
         
         if type(first) == ParserOperation:
             if type(second) == ParserOperation and not second.first and first.first and first.second:
                 second.first = first
                 return second
-        
-        if type(first) == ParserLineBlock:
-            if type(second) == ParserOperation:
-                return ParserFutureFunction(first, second)
             
         if type(first) == ParserPFixOperator:
             if type(second) == ParserVariable and second.isStoreVariable():
@@ -680,12 +620,6 @@ class ParserMerge:
             if type(second) == ParserFuncParameter:
                 first.after = second
                 return first
-
-            if type(second) == ParserVariable:
-                return ParserMerge.merge(ParserFunctionParamAbstract(), second)
-            
-            if type(second) == ParserFunctionExecutable:
-                return ParserMerge.merge(ParserFunctionParamAbstract(), second)
         
         if type(second) == ParserFuncComma:
             if not second.getValue():
@@ -711,21 +645,7 @@ class ParserMerge:
         if type(first) == ParserFuncOperatorReturn:
             if type(second) == ParserVariableType:
                 return ParserFuncReturnType(second.type)
-        
-        if type(first) == ParserFunctionParamAbstract:
-            if type(second) == ParserEmpty:
-                return second
-
-            if type(second) == ParserVariable:
-                return ParserFunctionParam(second, 0)
-            
-            if type(second) == ParserFunctionExecutable:
-                return ParserFunctionParam(second, 0)
-        
-        if type(first) == ParserFunctionExecutable:
-            if type(second) == ParserOperation and not second.first:
-                second.first = first
-                return second
+                
         return ParserError()
 
     @staticmethod
@@ -1033,9 +953,7 @@ class Parser:
     @staticmethod
     def isMergeValid(merged):
         if type(merged) == ParserFutureFunction:
-            if not merged.lineBlock.value:
-                return ParserError()
-            merged = ParserMerge.merge(merged.lineBlock.value, merged.after)
+            merged = ParserMerge.merge(merged.first.value, merged.second)
 
         if type(merged) == ParserOperation and not merged.first:
             return ParserError()
