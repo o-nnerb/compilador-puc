@@ -7,7 +7,7 @@ from .ParserTree import ParserTree
 from Interpreter.Variable.Variable import VariableConstantType, VariableDeclarationCast
 
 from enum import Enum, unique
-
+import traceback
 
 class ParserVariable(LexerToken):
     def __init__(self, value):
@@ -93,20 +93,33 @@ class ParserOperationAssigment(ParserOperation):
     def __init__(self, first, second, operator):
         super(ParserOperationAssigment, self).__init__(first, second, operator)
 
-class ParserLineBlock:
+class ParserLineBlockAbstract:
     def __init__(self):
         return
+
+class ParserLineBlock:
+    value = 0
+    def __init__(self, value):
+        self.value = value
 
     @staticmethod
     def isLineBlock(object):
         return object.getValue() == '('
 
-class ParserLineBlockUnstack:
-    value = 0
-    before = 0
+    @staticmethod
+    def merge(value):
+        if type(value) != ParserLineBlockCarry:
+            return ParserError()
+        
+        return ParserMerge.merge(ParserLineBlockAbstract(), value)
 
+    def isSomething(self):
+        return self.value and type(self.value) != ParserEmpty
+
+class ParserLineBlockCarry(ParserLineBlock):
+    after = 0
     def __init__(self):
-        self.value = 0
+        super(ParserLineBlockCarry, self).__init__(0)
 
     def getValue(self):
         return self.value
@@ -114,15 +127,20 @@ class ParserLineBlockUnstack:
     def setValue(self, value):
         self.value = value
     
-    def getBefore(self):
-        return self.before
+    def getAfter(self):
+        return self.after
 
-    def setBefore(self, value):
-        self.before = value
+    def setAfter(self, value):
+        self.after = value
 
     @staticmethod
     def isLineBlockUnstack(object):
         return object.getValue() == ')'
+
+    def superMerge(self):
+        if self.value:
+            return self.value
+        return ParserEmpty()
 
 class ParserKeyword:
     def __init__(self):
@@ -286,6 +304,29 @@ class ParserFunc(ParserBlock):
     def isFuncBlock(object):
         return object.getValue() == "func"
 
+class ParserFunction:
+    name = 0
+    parameters = 0
+
+    def __init__(self, name, parameters):
+        self.name = name
+        self.parameters = parameters
+
+class ParserFutureFunction:
+    first = 0
+    second = 0
+
+    def __init__(self, first, second):
+        self.first = first
+        self.second = second
+
+class ParserFunctionVariable:
+    name = 0
+    value = 0
+
+    def __init__(self, value):
+        self.value = value
+
 class ParserFuncVariable(ParserVariable):
     def __init__(self, value):
         super(ParserFuncVariable, self).__init__(value)
@@ -298,7 +339,7 @@ class ParserFuncVariableDeclaration(ParserDeclarationVariable):
     def __init__(self, variable, type):
         super(ParserFuncVariableDeclaration, self).__init__(variable, type, VariableConstantType.let)
 
-class ParserFuncComma(ParserLineBlockUnstack):
+class ParserFuncComma(ParserLineBlockCarry):
     after = 0
     
     def __init__(self):
@@ -307,6 +348,43 @@ class ParserFuncComma(ParserLineBlockUnstack):
     @staticmethod
     def isComma(object):
         return object.getValue() == ","
+
+class ParserFunctionComma:
+    def __init__(self):
+        return
+
+class ParserFunctionCommaTree:
+    first = 0
+    second = 0
+
+    holder = 0
+
+    def __init__(self):
+        return
+    
+    def insert(self, value):
+        if self.holder:
+            print("Can't insert while there is a holder")
+            quit()
+
+        if not self.second:
+            self.second = value
+            return self
+
+        if not self.first:
+            self.first = value
+            return self
+        
+        new = ParserFunctionCommaTree()
+        new.first = value
+        new.second = self
+        
+        return new
+
+    def getHolder(self):
+        if not self.holder:
+            return ParserEmpty()
+        return self.holder    
 
 class ParserFuncOperatorReturn:
     def __init__(self):
@@ -344,6 +422,8 @@ class ParserEmpty:
 
 class ParserError:
     def __init__(self):
+        traceback.print_stack()
+        quit()
         return
 @unique
 class ParserContext(Enum):
@@ -380,6 +460,12 @@ class ParserMerge:
 
             if type(second) == ParserFixOperation:
                 return ParserOperationAssigment(0, second, first)
+            
+            if type(second) == ParserLineBlock and second.isSomething():
+                return ParserOperationAssigment(0, second, first)
+            
+            if type(second) == ParserFunction:
+                return ParserOperationAssigment(0, second, first)
         
         if type(first) == ParserOperator:
             if type(second) == ParserVariable:
@@ -390,6 +476,20 @@ class ParserMerge:
             
             if type(second) == ParserOperation and second.first:
                 return ParserOperation(0, second, first)
+            
+            if type(second) == ParserLineBlock and second.isSomething():
+                return ParserOperation(0, second, first)
+            
+            if type(second) == ParserFunction:
+                return ParserOperation(0, second, first)
+            
+            if type(second) == ParserFunctionCommaTree:
+                if second.getHolder():
+                    second.holder = ParserMerge.merge(first, second.getHolder())
+                    return second
+            
+            if type(second) == ParserFutureFunction:
+                return ParserMerge.merge(first, ParserMerge.merge(second.first.value, second.second))
 
         if type(first) == ParserVariable:
             if type(second) == ParserOperationAssigment:
@@ -397,7 +497,7 @@ class ParserMerge:
                     return ParserError()
                 second.first = first
                 return second
-
+                
             if type(second) == ParserOperation and not second.first:
                 second.first = first
                 return second
@@ -428,41 +528,118 @@ class ParserMerge:
                 if type(second.first) == ParserPFixOperator and type(second.second) == ParserOperation and not second.second.first:
                     second.second.first = ParserMerge.merge(first, second.first)
                     return second.second
-        
-        if type(first) == ParserLineBlock:
-            if type(second) == ParserLineBlockUnstack:
-                if second.getValue():
-                    if type(second.getValue()) == ParserOperation and not second.getValue().first:
-                        return ParserError()
-                        
-                    if type(second.getValue()) == ParserFuncParameter:
-                        if not second.getBefore():
-                            return ParserFuncParameterQueue(second.getValue(), 0)
-                        if type(second.getBefore()) == ParserFuncReturnType:
-                            return ParserFuncParameterQueue(second.getValue(), second.getBefore())
+            
+            if type(second) == ParserLineBlock and first.isStoreVariable():
+                if type(second.value) == ParserEmpty:
+                    return ParserFunction(first, second.value)
+                if type(second.value) == ParserFunctionVariable:
+                    return ParserFunction(first, second.value)
+                if type(second.value) == ParserFunctionCommaTree and not second.value.holder:
+                    return ParserFunction(first, second.value)
 
-                    if second.getBefore():
-                        return ParserMerge.merge(second.getValue(), second.getBefore())
+                return ParserError()
+            
+            if type(second) == ParserFutureFunction:
+                return ParserMerge.merge(ParserMerge.merge(first, second.first), second.second)
+            
+            if type(second) == ParserFunctionVariable and not second.name:
+                second.name = first
+                return second
 
-                    return second.getValue()
-                return ParserEmpty()
+            if type(second) == ParserFunctionCommaTree:
+                print(second.first)
+                if not second.first:
+                    second.holder = ParserMerge.merge(first, second.getHolder())
+                    return second
+                if type(second.first) == ParserFunctionVariable:
+                    second.holder = ParserMerge.merge(first, second.getHolder())
+                    return second
+                    
 
-        if type(second) == ParserLineBlockUnstack:
+                    
+        if type(first) == ParserFunction:
+            if type(second) == ParserOperation and not second.first:
+                second.first = first
+                return second
+
+        if type(first) == ParserLineBlockAbstract:
+            if type(second) == ParserVariable:
+                return ParserLineBlock(second)
+
+            if type(second) == ParserLineBlock:
+                return ParserLineBlock(second)
+            
+            if type(second) == ParserOperation and second.first and second.second and second.operator:
+                return ParserLineBlock(second)
+            
+            if type(second) == ParserFuncParameter:
+                return ParserFuncParameterQueue(second, 0)
+
+            if type(second) == ParserFunctionVariable:
+                return ParserLineBlock(second)
+            
+            if type(second) == ParserFunctionCommaTree:
+                if type(second.holder) == ParserFunctionVariable and second.holder.name:
+                    toAppend = second.holder
+                    second.holder = 0
+                    return ParserLineBlock(second.insert(toAppend))
+            
+            if type(second) == ParserFunction:
+                return ParserLineBlock(second)
+            
+            if type(second) == ParserFixOperation:
+                return ParserLineBlock(second)
+
+        if type(second) == ParserLineBlockCarry:
             if not second.getValue():
+                if type(first) == ParserLineBlockAbstract:
+                    if second.getAfter():
+                        return ParserMerge.merge(ParserLineBlock(ParserEmpty()), second.getAfter())
+                    return ParserLineBlock(ParserEmpty())
                 second.setValue(first)
                 return second
-            
+                
+            if type(second.getValue()) == ParserLineBlockCarry:
+                second.setValue(ParserMerge.merge(first, second.getValue()))
+                return second
+
             second.setValue(ParserMerge.merge(first, second.getValue()))
+            if type(second.getValue()) == ParserLineBlock:
+                if second.getAfter():
+                    return ParserMerge.merge(second.getValue(), second.getAfter())
+                return second.getValue()
+            
+            if type(second.getValue()) == ParserFuncParameterQueue:
+                if second.getAfter():
+                    if type(second.getAfter()) != ParserFuncReturnType:
+                        return ParserError()
+                    return ParserFuncParameterQueue(second.getValue(), second.getAfter())
+                return second.getValue()
+
             return second
-        
-        if type(first) == ParserLineBlockUnstack and not first.before:
+
+        if type(first) == ParserLineBlockCarry and not first.after:
             if type(second) == ParserOperation and not second.first:
-                first.setBefore(second)
+                first.setAfter(second)
                 return first
             
             if type(second) == ParserFuncReturnType:
-                first.setBefore(second)
+                first.setAfter(second)
                 return first
+            
+            if type(second) == ParserFunctionCommaTree:
+                first.setAfter(second)
+                return first
+
+            
+        if type(first) == ParserLineBlock:
+            if type(second) == ParserOperation and not second.first:
+                return ParserFutureFunction(first, second)
+            
+            #print(second)
+            if type(second) == ParserFunctionCommaTree and second.getHolder():
+                second.holder = ParserMerge.merge(first, second.getHolder())
+                return second
         
         if type(first) == ParserOperation:
             if type(second) == ParserOperation and not second.first and first.first and first.second:
@@ -508,6 +685,23 @@ class ParserMerge:
             if type(second) == ParserDeclarationVariable:
                 if second.variable and second.type:
                     return second
+            
+            if type(second) == ParserVariable:
+                return ParserFunctionVariable(second)
+
+            if type(second) == ParserOperation and second.first:
+                return ParserFunctionVariable(second)
+            
+            if type(second) == ParserFunctionCommaTree:
+                if not second.first:
+                    second.holder = ParserMerge.merge(first, second.getHolder())
+                    return second
+                if type(second.first) ==  ParserFunctionVariable:
+                    second.holder = ParserMerge.merge(first, second.getHolder())
+                    return second
+
+            if type(second) == ParserFutureFunction:
+                return ParserMerge.merge(first, ParserMerge.merge(second.first.value, second.second))
 
         if type(first) == ParserWhile:
             if type(second) == LexerQueue:
@@ -569,6 +763,17 @@ class ParserMerge:
             if type(second) == ParserVariableType:
                 return ParserFuncReturnType(second.type)
 
+        if type(first) == ParserFunctionComma:
+            if type(second) == ParserFunctionVariable and second.name:
+                return ParserFunctionCommaTree().insert(second)
+            
+            if type(second) == ParserFunctionCommaTree:
+                if second.holder and type(second.holder) == ParserFunctionVariable:
+                    new = second.holder
+                    second.holder = 0
+                    return second.insert(new)
+
+                
         return ParserError()
 
     @staticmethod
@@ -614,11 +819,11 @@ class Parser:
     @staticmethod
     def toParse(object, callback, types, notFound):
         for type in types:            
-            if type == ParserLineBlockUnstack and ParserLineBlockUnstack.isLineBlockUnstack(object):
-                return ParserMerge.merge(ParserLineBlockUnstack(), callback())
+            if type == ParserLineBlockCarry and ParserLineBlockCarry.isLineBlockUnstack(object):
+                return ParserMerge.merge(ParserLineBlockCarry(), callback())
 
             if type == ParserLineBlock and ParserLineBlock.isLineBlock(object):
-                return ParserMerge.merge(ParserLineBlock(), callback())
+                return ParserLineBlock.merge(callback())
             
             if type == ParserVariable and ParserVariable.isVariable(object):
                 return ParserMerge.merge(ParserVariable(object), callback())
@@ -650,6 +855,9 @@ class Parser:
             if type == ParserPFixOperator and ParserPFixOperator.isPFixOperator(object):
                 return ParserMerge.merge(ParserPFixOperator(object), callback())
             
+            if type == ParserFunctionComma and ParserFuncComma.isComma(object):
+                return ParserMerge.merge(ParserFunctionComma(), callback())
+            
         return notFound()
 
     def execute(self):
@@ -663,12 +871,14 @@ class Parser:
             return ParserEmpty()
 
         parsed = Parser.toParse(object, self.execute, [
-            ParserLineBlockUnstack,
+            ParserLineBlockCarry,
             ParserLineBlock,
             ParserVariable,
             ParserOperator,
             ParserPFixOperator,
+            ParserFunctionComma,
             ParserAssigment,
+            ParserDeclarationExplicit,
             ParserKeyword,
         ], ParserError)
         
@@ -709,6 +919,9 @@ class Parser:
         return ParserError()
 
     def isWhileValid(self, merged):
+        if type(merged) == ParserLineBlock:
+            merged = merged.value
+
         if type(merged) == ParserError:
             return merged
         
@@ -739,6 +952,9 @@ class Parser:
         return ParserMerge.merge(merged, self.block())
 
     def isIfValid(self, merged):
+        if type(merged) == ParserLineBlock:
+            merged = merged.value
+
         if type(merged) == ParserError:
             return merged
         
@@ -772,11 +988,13 @@ class Parser:
 
         return Parser.toParse(object, self.blockIf, [
             ParserBlock,
-            ParserLineBlockUnstack,
+            ParserLineBlockCarry,
             ParserLineBlock,
             ParserVariable,
             ParserOperator,
-            ParserPFixOperator
+            ParserPFixOperator,
+            ParserFunctionComma,
+            ParserDeclarationExplicit,
         ], ParserError)
 
     def blockFor(self):
@@ -802,7 +1020,7 @@ class Parser:
 
         return Parser.toParseWithContext(object, self.blockFunc, [
             ParserBlock,
-            ParserLineBlockUnstack,
+            ParserLineBlockCarry,
             ParserLineBlock,
             ParserVariableType
         ], ParserError, ParserContext.function)
@@ -819,7 +1037,7 @@ class Parser:
             return ParserEmpty()
 
         return Parser.toParse(object, self.declarationLine, [
-            ParserLineBlockUnstack,
+            ParserLineBlockCarry,
             ParserLineBlock,
             ParserVariable,
             ParserDeclarationExplicit,
@@ -865,18 +1083,30 @@ class Parser:
 
     @staticmethod
     def isMergeValid(merged):
+        if type(merged) == ParserFutureFunction:
+            merged = ParserMerge.merge(merged.first.value, merged.second)
+
         if type(merged) == ParserOperation and not merged.first:
             return ParserError()
 
         if type(merged) == ParserOperationAssigment and not merged.first:
             return ParserError()
         
-        notAccepted = Parser.notAccepted(merged, [
-            ParserOperationFixParcial,
-            ParserPFixOperator,
-            ParserLineBlockUnstack,
-            ParserLineBlock,
-        ])
+        if type(merged) == ParserLineBlock:
+            if type(merged.value) == ParserEmpty:
+                return ParserError()
+
+            notAccepted = Parser.isMergeValid(merged.value)
+
+        else:
+            notAccepted = Parser.notAccepted(merged, [
+                ParserOperationFixParcial,
+                ParserPFixOperator,
+                ParserLineBlockCarry,
+                ParserFunctionVariable,
+                ParserFunctionComma,
+                ParserFunctionCommaTree
+            ])
         
         if type(notAccepted) == ParserError:
             return notAccepted
