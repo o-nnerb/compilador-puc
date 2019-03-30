@@ -586,6 +586,9 @@ class ParserMerge:
             
             if type(second) == ParserFunction:
                 return ParserLineBlock(second)
+            
+            if type(second) == ParserFixOperation:
+                return ParserLineBlock(second)
 
         if type(second) == ParserLineBlockCarry:
             if not second.getValue():
@@ -1088,12 +1091,22 @@ class Parser:
 
         if type(merged) == ParserOperationAssigment and not merged.first:
             return ParserError()
-            
-        notAccepted = Parser.notAccepted(merged, [
-            ParserOperationFixParcial,
-            ParserPFixOperator,
-            ParserLineBlockCarry
-        ])
+        
+        if type(merged) == ParserLineBlock:
+            if type(merged.value) == ParserEmpty:
+                return ParserError()
+
+            notAccepted = Parser.isMergeValid(merged.value)
+
+        else:
+            notAccepted = Parser.notAccepted(merged, [
+                ParserOperationFixParcial,
+                ParserPFixOperator,
+                ParserLineBlockCarry,
+                ParserFunctionVariable,
+                ParserFunctionComma,
+                ParserFunctionCommaTree
+            ])
         
         if type(notAccepted) == ParserError:
             return notAccepted
