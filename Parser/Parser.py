@@ -15,11 +15,64 @@ class ParserVariable(LexerToken):
 
     @staticmethod
     def isVariable(object):
-        return compareToken(object, [LexerEnum.id, LexerEnum.integer, LexerEnum.float, LexerEnum.boolean])
+        return compareToken(object, [LexerEnum.id, LexerEnum.integer, LexerEnum.float, LexerEnum.boolean, LexerEnum.string])
     
     def isStoreVariable(self):
         return compareToken(self, LexerEnum.id)
     
+class ParserStringOperatorAppendE:
+    def __init__(self):
+        return
+    
+    @staticmethod
+    def isAppendE(object):
+        return object.getToken() == LexerEnum.string_append_e
+
+class ParserStringOperatorAppend:
+    def __init__(self):
+        return
+
+    @staticmethod
+    def isAppend(object):
+        return object.getToken() == LexerEnum.string_append
+
+class ParserStringAppend:
+    first = 0
+    second = 0
+
+    def __init__(self):
+        return
+
+    def setFirst(self, object):
+        if not self.first:
+            if type(object) == ParserVariable:
+                self.first = object
+                return self
+            if type(object) == ParserLineBlockCarry:
+                self.first = object
+                return self
+            return ParserError()
+        
+        self.first = ParserMerge.merge(object, self.first)
+        if type(self.first) == ParserError:
+            return self.first
+
+        return self
+
+    @staticmethod
+    def isAppend(object):
+        return ParserStringOperatorAppend.isAppend(object) or ParserStringOperatorAppendE.isAppendE(object)
+
+    @staticmethod
+    def toParserClass(object):
+        if ParserStringOperatorAppend.isAppend(object):
+            return ParserStringOperatorAppend()
+        
+        if ParserStringOperatorAppendE.isAppendE(object):
+            return ParserStringOperatorAppendE()
+        
+        return ParserError()
+
 class ParserOperator(LexerToken):
     def __init__(self, value):
         super(ParserOperator, self).__init__(value.getToken(), value.getValue())
@@ -104,10 +157,14 @@ class ParserLineBlock:
 
     @staticmethod
     def isLineBlock(object):
-        return object.getValue() == '('
+        return object.getToken() == LexerEnum.delimiter and object.getValue() == '('
 
     @staticmethod
     def merge(value):
+        if type(value) == ParserStringAppend:
+            value.first = ParserLineBlock.merge(value.first)
+            return value
+
         if type(value) != ParserLineBlockCarry:
             return ParserError()
         
@@ -135,7 +192,7 @@ class ParserLineBlockCarry(ParserLineBlock):
 
     @staticmethod
     def isLineBlockUnstack(object):
-        return object.getValue() == ')'
+        return object.getToken() == LexerEnum.delimiter and object.getValue() == ')'
 
     def superMerge(self):
         if self.value:
@@ -157,11 +214,11 @@ class ParserBlock:
 
     @staticmethod
     def isBlock(object):
-        return object.getValue() == "{"
+        return object.getToken() == LexerEnum.delimiter and object.getValue() == "{"
     
     @staticmethod
     def isCloseBlock(object):
-        return object.getValue() == '}'
+        return object.getToken() == LexerEnum.delimiter and object.getValue() == '}'
 
 class ParserIf(ParserBlock):
     value = 0
@@ -588,6 +645,18 @@ class ParserMerge:
             if type(second) == ParserFixOperation:
                 return ParserLineBlock(second)
 
+        if type(first) == ParserStringOperatorAppendE:
+            if type(second) == ParserVariable and second.getToken() == LexerEnum.string:
+                operation = ParserStringAppend()
+                operation.second = second
+                return operation
+            
+        if type(first) == ParserStringOperatorAppend:
+            if type(second) == ParserStringAppend and second.first:
+                operation = ParserStringAppend()
+                operation.second = second
+                return operation
+
         if type(second) == ParserLineBlockCarry:
             if not second.getValue():
                 if type(first) == ParserLineBlockAbstract:
@@ -628,7 +697,6 @@ class ParserMerge:
             if type(second) == ParserFunctionCommaTree:
                 first.setAfter(second)
                 return first
-
             
         if type(first) == ParserLineBlock:
             if type(second) == ParserOperation and not second.first:
@@ -771,6 +839,9 @@ class ParserMerge:
                     second.holder = 0
                     return second.insert(new)
 
+        if type(second) == ParserStringAppend:
+            return second.setFirst(first)
+
                 
         return ParserError()
 
@@ -856,6 +927,9 @@ class Parser:
             if type == ParserFunctionComma and ParserFuncComma.isComma(object):
                 return ParserMerge.merge(ParserFunctionComma(), callback())
             
+            if type == ParserStringAppend and ParserStringAppend.isAppend(object):
+                return ParserMerge.merge(ParserStringAppend.toParserClass(object), callback())                
+            
         return notFound()
 
     def execute(self):
@@ -877,6 +951,7 @@ class Parser:
             ParserFunctionComma,
             ParserAssigment,
             ParserDeclarationExplicit,
+            ParserStringAppend,
             ParserKeyword,
         ], ParserError)
         
@@ -1088,6 +1163,9 @@ class Parser:
             return ParserError()
 
         if type(merged) == ParserOperationAssigment and not merged.first:
+            return ParserError()
+
+        if type(merged) == ParserStringAppend and not merged.first:
             return ParserError()
         
         if type(merged) == ParserLineBlock:

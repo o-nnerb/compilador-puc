@@ -253,6 +253,9 @@ class Lexer:
         
         if string[len(string)-1] != asp:
             string += asp
+
+        if len(string) == 1:
+            string += asp
             
         LexerQueue.shared().insert(LexerToken(LexerEnum.string, string))
     
