@@ -195,6 +195,7 @@ class Lexer:
     @staticmethod
     def findLimit(imin):
         countP = 1
+
         while Lexer.charAt(imin) != "":
             if Lexer.charAt(imin) == "(":
                 countP = countP + 1
@@ -224,17 +225,14 @@ class Lexer:
                 if Lexer.charAt(imin+1) == "(":
                     return imin+1
 
-        countAsp = 1
         imin += 1
-        while Lexer.charAt(imin) != "" and (Lexer.charAt(imin) != asp and countAsp):
+        while Lexer.charAt(imin) != "":
             if Lexer.charAt(imin) == "\\":
                 if Lexer.charAt(imin+1) == "(":
                     return imin+1
                 
-            if Lexer.charAt(imin) == asp and countAsp:
-                countAsp -= 1
-            elif Lexer.charAt(imin) == asp and not countAsp:
-                countAsp += 1
+            if Lexer.charAt(imin) == asp:
+                break
             
             imin += 1
         
@@ -290,7 +288,7 @@ class Lexer:
             else:
                 string = Lexer.charRange(imin, imax+1)
                 Lexer.append(string, asp)
-                return (imax+1, LexerEnum.string)
+                return (imax, LexerEnum.string)
 
         return (oimin-1, False)
 
@@ -322,6 +320,7 @@ class Lexer:
         queue = LexerQueue.shared()
 
         (imax, token) = Lexer.parseLine(imin)
+        print(token)
         
         if imax < imin:
             if Lexer.charAt(imin) != '\t' and Lexer.charAt(imin) != '\n' and Lexer.charAt(imin) != ' ' and Lexer.charAt(imin) != '\r':
