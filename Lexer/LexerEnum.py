@@ -29,6 +29,9 @@ class LexerEnum(Enum):
     error = "ERR"
     expression = "EXP"
 
+    comment_line = "COM_L"
+    comment_multiple = "COM_M"
+
     @staticmethod
     def compare(object, values):
         token = object.getToken()

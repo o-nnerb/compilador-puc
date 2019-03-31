@@ -555,8 +555,6 @@ class ParserMerge:
                     second.holder = ParserMerge.merge(first, second.getHolder())
                     return second
                     
-
-                    
         if type(first) == ParserFunction:
             if type(second) == ParserOperation and not second.first:
                 second.first = first

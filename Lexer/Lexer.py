@@ -140,7 +140,20 @@ class Lexer:
             if Lexer.charAt(imin+1) == ">":
                 return (imin+1, LexerEnum.operator_return)
             return (imin, LexerEnum.operator)
-        if bool(re.match("(?:\*|\%|\/|\^)", Lexer.charAt(imin))) == False:
+        
+        if Lexer.charAt(imin) == "*":
+            if Lexer.charAt(imin+1) == "/":
+                return (imin+1, LexerEnum.comment_multiple)
+            return (imin, LexerEnum.operator)
+        
+        if Lexer.charAt(imin) == "/":
+            if Lexer.charAt(imin+1) == "/":
+                return (imin+1, LexerEnum.comment_line)
+            if Lexer.charAt(imin+1) == "*":
+                return (imin+1, LexerEnum.comment_multiple)
+            return (imin, LexerEnum.operator)
+
+        if bool(re.match("(?:\%|\^)", Lexer.charAt(imin))) == False:
             return (imin-1, False)
 
         return (imin, LexerEnum.operator)
@@ -191,7 +204,7 @@ class Lexer:
             return (imax, context)
         
         functions = [Lexer.isNum, Lexer.isNeg, Lexer.isEqual, Lexer.isGreater, Lexer.isLess, Lexer.isOperator, Lexer.isDelimitador]
-
+        
         for func in functions:
             (imax, context) = func(imin)
             if imax >= imin:
@@ -213,32 +226,31 @@ class Lexer:
                 if imax < imin:
                     if Lexer.charAt(imin) != '\t' and Lexer.charAt(imin) != '\n' and Lexer.charAt(imin) != ' ' and Lexer.charAt(imin) != '\r':
                         # Save line and imin
-                        queue.insert(LexerToken(LexerEnum.lexer_error, Lexer.charAt(imin)))
+                        #queue.insert(LexerToken(LexerEnum.lexer_error, Lexer.charAt(imin)))
                         #if self.write_output:
-                        print('Error: compiler couldn\'t compreend this caracter (' + str(Lexer.charAt(imin)) + ') on line ' + str(iline))
-                        print(Lexer.line)
+                        if not queue.isLock():
+                            print('Error: compiler couldn\'t compreend this caracter (' + str(Lexer.charAt(imin)) + ') on line ' + str(iline))
+                            print(Lexer.line)
                     imin += 1
                 else:
                     value = Lexer.charRange(imin, imax+1)
                     object = LexerToken(token, value)
                     queue.insert(object)
-
-                    if self.write_out:
-                        self.output.write(token.value+'{'+value+'}')
                     
                     imin = imax+1
                     lineHasInstruction = True
             
-            if lineHasInstruction and bool(re.match("(?:\;)", queue.lastElement().getValue())) == False:
-                object = LexerToken(LexerEnum.endline, "end")
+            if Lexer.charAt(imin) != '\n' or lineHasInstruction and queue.lastElement() and bool(re.match("(?:\;)", queue.lastElement().getValue())) == False:
+                object = LexerToken.endline()
                 queue.insert(object)
-                if self.write_out:
-                    self.output.write(object.getToken().value + "{"+object.getValue()+"}")
 
-            if self.write_out:
-                self.output.write('\n')
-
+        if self.write_out:
+            queue.write_out(self.toOutput)
         return
+
+    def toOutput(self, object):
+        print(object)
+        self.output.write(object.getToken().value + "{"+object.getValue()+"}")
 
     @staticmethod
     def run(args):

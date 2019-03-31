@@ -1,3 +1,6 @@
+from .LexerToken import LexerToken
+from .LexerEnum import LexerEnum
+
 class LexerQueueNode:
     node = 0
     next = 0
@@ -53,7 +56,30 @@ class LexerQueue:
     def toFirst(self):
         self.head = self.first
     
+    lock_line = 0
+    lock_multiple = 0
+    def isLock(self):
+        return self.lock_multiple or self.lock_line
+
     def insert(self, token):
+        if type(token) == LexerToken:
+            if token.getToken() == LexerEnum.comment_line:
+                self.lock_line = 1
+            if token.getToken() == LexerEnum.endline:
+                self.lock_line = 0
+
+            if token.getValue() == "/*":
+                if self.getHead() and self.getHead().getToken() != LexerEnum.endline:
+                    self.insert(LexerToken.endline())
+                self.lock_multiple = 1
+            
+            if token.getValue() == "*/":
+                self.lock_multiple = 0
+                return
+
+        if self.isLock():
+            return
+
         node = LexerQueueNode.create(token, self.last)
         if self.last:
             self.last.setNext(node)
@@ -159,6 +185,16 @@ class LexerQueue:
                 print(last.getToken().value + "<" + last.getValue() + ">")
             else:
                 print(last)
+    
+    def write_out(self, function):
+        print(function)
+        head = self.head
+        while head:
+            last = head.getNode()
+            head = head.getNext()
+            function(last)
+        
+            
 
 
 

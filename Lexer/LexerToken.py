@@ -1,3 +1,5 @@
+from .LexerEnum import LexerEnum
+
 class LexerToken:
     token = 0
     value = 0
@@ -11,3 +13,7 @@ class LexerToken:
     
     def getValue(self):
         return self.value
+
+    @staticmethod
+    def endline():
+        return LexerToken(LexerEnum.endline, "end")
