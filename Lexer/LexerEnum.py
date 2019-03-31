@@ -32,6 +32,8 @@ class LexerEnum(Enum):
     comment_line = "COM_L"
     comment_multiple = "COM_M"
 
+    string = "STRING"
+
     @staticmethod
     def compare(object, values):
         token = object.getToken()

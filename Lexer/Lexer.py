@@ -169,6 +169,21 @@ class Lexer:
             return (imin-1, False)
 
         return (imin, LexerEnum.delimiter)
+    
+    @staticmethod
+    def isString(imin):
+        omin = imin
+        if Lexer.charAt(imin) == "\"":
+            imin += 1
+            string = ""
+            while Lexer.charAt(imin) != "" and Lexer.charAt(imin) != "\"":
+                string += Lexer.charAt(imin)
+                imin+= 1
+            
+            if Lexer.charAt(imin) == "\"":
+                return(imin, LexerEnum.string)
+
+        return (omin-1, False)
 
     @staticmethod
     def isKeyword(string):
@@ -203,7 +218,7 @@ class Lexer:
                 return (imax, keyContext)
             return (imax, context)
         
-        functions = [Lexer.isNum, Lexer.isNeg, Lexer.isEqual, Lexer.isGreater, Lexer.isLess, Lexer.isOperator, Lexer.isDelimitador]
+        functions = [Lexer.isNum, Lexer.isNeg, Lexer.isEqual, Lexer.isGreater, Lexer.isLess, Lexer.isOperator, Lexer.isDelimitador, Lexer.isString]
         
         for func in functions:
             (imax, context) = func(imin)
