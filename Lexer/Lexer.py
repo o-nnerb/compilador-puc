@@ -170,14 +170,17 @@ class Lexer:
 
         return (imin, LexerEnum.delimiter)
     
+    lock_string = 0
     @staticmethod
     def isString(imin):
         omin = imin
         if Lexer.charAt(imin) == "\"":
             imin += 1
-            string = ""
             while Lexer.charAt(imin) != "" and Lexer.charAt(imin) != "\"":
-                string += Lexer.charAt(imin)
+                if Lexer.charAt(imin) == "\\":
+                    if Lexer.charAt(imin+1) == "(":
+                        Lexer.lock_string = 1
+                        return(imin-1, LexerEnum.string)
                 imin+= 1
             
             if Lexer.charAt(imin) == "\"":
@@ -186,9 +189,54 @@ class Lexer:
         return (omin-1, False)
 
     @staticmethod
-    def isKeyword(string):
-        #string = string.lower()
+    def stringStack(imin):
+        if Lexer.charAt(imin) == "":
+            return
+        
+        if Lexer.charAt(imin) == "\"":
+            return Lexer.charAt(imin)
+        
+        return Lexer.charAt(imin) + Lexer.stringStack(imin+1)
 
+    @staticmethod
+    def isStringAppend(imin):
+        if Lexer.charAt(imin) == "\\":
+            if Lexer.charAt(imin+1) == "(":
+                if LexerQueue.shared().getHead().getToken() == LexerEnum.string:
+                    value = LexerQueue.shared().getHead()
+                    ss = value.getValue()
+                    ss += "\""
+                    value.value = ss
+                    
+                LexerQueue.shared().insert(LexerToken(LexerEnum.string_append, Lexer.charRange(imin, imin+2)))
+                oimin = imin
+                imin += 2
+                countP=0
+                while (Lexer.charAt(imin) != ")" or countP) and Lexer.charAt(imin) != "":
+                    if Lexer.charAt(imin) == "(":
+                        countP += 1
+                    if Lexer.charAt(imin) == ")":
+                        countP -= 1
+        
+                    imin += 1
+                
+                if Lexer.charAt(imin) == "":
+                    return (imin, False)
+
+                oimin += 2
+                while oimin < imin:
+                    (isOk, oimin) = Lexer.parserFrom(oimin)
+                
+                LexerQueue.shared().insert(LexerToken(LexerEnum.string_append_e, Lexer.charAt(oimin)))
+                    
+                string = "\"" + Lexer.stringStack(oimin+1)
+                LexerQueue.shared().insert(LexerToken(LexerEnum.string, string))
+                return (oimin+1+len(string), False)
+        return (imin-1, False)
+
+
+    @staticmethod
+    def isKeyword(string):
         if bool(re.match("(?:true|false)", string)) == True:
             return (True, LexerEnum.boolean)
 
@@ -218,7 +266,7 @@ class Lexer:
                 return (imax, keyContext)
             return (imax, context)
         
-        functions = [Lexer.isNum, Lexer.isNeg, Lexer.isEqual, Lexer.isGreater, Lexer.isLess, Lexer.isOperator, Lexer.isDelimitador, Lexer.isString]
+        functions = [Lexer.isNum, Lexer.isNeg, Lexer.isEqual, Lexer.isGreater, Lexer.isLess, Lexer.isOperator, Lexer.isDelimitador, Lexer.isString, Lexer.isStringAppend]
         
         for func in functions:
             (imax, context) = func(imin)
@@ -226,6 +274,30 @@ class Lexer:
                 return (imax, context)
 
         return (imin-1, False)
+
+    @staticmethod
+    def parserFrom(imin):
+        queue = LexerQueue.shared()
+
+        (imax, token) = Lexer.parseLine(imin)
+        if imax < imin:
+            if Lexer.charAt(imin) != '\t' and Lexer.charAt(imin) != '\n' and Lexer.charAt(imin) != ' ' and Lexer.charAt(imin) != '\r':
+                # Save line and imin
+                #queue.insert(LexerToken(LexerEnum.lexer_error, Lexer.charAt(imin)))
+                #if self.write_output:
+                if not queue.isLock():
+                    print('Error: compiler couldn\'t compreend this caracter (' + str(Lexer.charAt(imin)) + ') on line ' + str(iline))
+                    print(Lexer.line)
+            imin += 1
+            return (True, imin)
+        else:
+            if token:
+                value = Lexer.charRange(imin, imax+1)
+                object = LexerToken(token, value)
+                queue.insert(object)
+            
+            imin = imax+1
+            return (True, imin)
 
     def parse(self):
         iline = 0
@@ -237,23 +309,7 @@ class Lexer:
             imin = 0
             lineHasInstruction = False
             while imin < len(Lexer.line):
-                (imax, token) = Lexer.parseLine(imin)
-                if imax < imin:
-                    if Lexer.charAt(imin) != '\t' and Lexer.charAt(imin) != '\n' and Lexer.charAt(imin) != ' ' and Lexer.charAt(imin) != '\r':
-                        # Save line and imin
-                        #queue.insert(LexerToken(LexerEnum.lexer_error, Lexer.charAt(imin)))
-                        #if self.write_output:
-                        if not queue.isLock():
-                            print('Error: compiler couldn\'t compreend this caracter (' + str(Lexer.charAt(imin)) + ') on line ' + str(iline))
-                            print(Lexer.line)
-                    imin += 1
-                else:
-                    value = Lexer.charRange(imin, imax+1)
-                    object = LexerToken(token, value)
-                    queue.insert(object)
-                    
-                    imin = imax+1
-                    lineHasInstruction = True
+                (lineHasInstruction, imin) = Lexer.parserFrom(imin)
             
             if Lexer.charAt(imin) != '\n' or lineHasInstruction and queue.lastElement() and bool(re.match("(?:\;)", queue.lastElement().getValue())) == False:
                 object = LexerToken.endline()

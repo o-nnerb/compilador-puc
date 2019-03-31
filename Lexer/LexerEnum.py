@@ -32,6 +32,8 @@ class LexerEnum(Enum):
     comment_line = "COM_L"
     comment_multiple = "COM_M"
 
+    string_append = "STRING_APPS"
+    string_append_e = "STRING_APPE"
     string = "STRING"
 
     @staticmethod
