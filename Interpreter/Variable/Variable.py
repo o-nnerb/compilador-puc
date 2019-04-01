@@ -213,10 +213,10 @@ class Variable:
         ans.toInteger()
         other.toInteger()
 
-        print("first " + str(ans.value))
-        print("second " + str(other.value))
+        #print("first " + str(ans.value))
+        #print("second " + str(other.value))
         ans.setPrimiteValue(ans.value % other.value)
-        print("result " + str(ans.value))
+        #print("result " + str(ans.value))
         return ans
      
     def __truediv__(self, other):
@@ -245,11 +245,11 @@ class Variable:
     def __eq__(self, other):
         # Equal to
         (ans, other) = Variable.castWithPriorityType(self, other)  
-        print("Bf " + str(ans.value))      
-        print("Bf " + str(other.value)) 
+        #print("Bf " + str(ans.value))      
+        #print("Bf " + str(other.value)) 
         ans.setPrimiteValue(ans.value == other.value)
         ans.toBoolean()  
-        print("Rf " + str(ans.value))   
+        #print("Rf " + str(ans.value))   
         return ans
      
     def __ne__(self, other):
@@ -349,9 +349,9 @@ class Variable:
 
     @staticmethod
     def withOperator(operator, first, second):
-        print(operator)
+        #print(operator)
         if operator == "+":
-            print((first + second).value)
+            #print((first + second).value)
             return first + second
         
         if operator == "-":

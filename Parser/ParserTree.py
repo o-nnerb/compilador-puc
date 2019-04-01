@@ -155,7 +155,7 @@ class ParserTree:
         string += node.getNode().getValue()
         if node.getOperator():
             string += " " + node.getOperator().getValue()
-        print(string)
+        #print(string)
 
         ParserTree.printRecursivo(node.getRight())
 

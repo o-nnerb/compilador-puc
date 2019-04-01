@@ -15,7 +15,7 @@ def executeOperation(operation):
             second = executeOperation(operation.second)
             first = executeOperation(operation.first)
             
-            print(operation.operator.getValue(), first)
+            #print(operation.operator.getValue(), first)
             return Variable.withOperator(operation.operator.getValue(), first, second)
 
     elif type(operation) == ParserVariable:
@@ -31,7 +31,7 @@ def executeOperation(operation):
 def processBlock(queue):
     arrayVar = []
     def nVar(variable):
-        print("appending")
+        #print("appending")
         arrayVar.append(variable)
 
     if not queue:
@@ -57,7 +57,7 @@ def processIfBlock(parserObject):
         processBlock(queue)
         parserObject.block.toFirst()
     elif parserObject.elseBlock:
-        print(parserObject.elseBlock)
+        #print(parserObject.elseBlock)
         if parserObject.elseBlock.ifBlock:
             processIfBlock(parserObject.elseBlock.ifBlock)
         else:
@@ -179,7 +179,7 @@ def normalizeString(variable):
     return variable
 
 def intepreterString(queue):
-    print(queue.node)
+    #print(queue.node)
 
     if type(queue.node) == ParserStringBlock:
         variable = executeOperation(queue.node.block)
@@ -209,14 +209,14 @@ def map(parserObject, __newVariable=0):
 
     if type(parserObject) == ParserOperationAssigment:
         variable = executeOperation(parserObject.first)
-        print(variable)
+        #print(variable)
         if type(parserObject.second) == ParserStringQueue:
             value = intepreterString(parserObject.second)
         else:
             value = executeOperation(parserObject.second)
-        print(value)
+        #print(value)
         variable.assigment(value)
-        LexerHash.shared().verbose()
+        #LexerHash.shared().verbose()
     
     if type(parserObject) == ParserIf:
         processIfBlock(parserObject)
@@ -244,13 +244,13 @@ def map(parserObject, __newVariable=0):
                     quit()
 
             if type(primitiveType) == VariableDeclarationCast and primitiveType == VariableDeclarationCast.auto:
-                print("do stuff")
+                #print("do stuff")
                 primitiveType = VariableType.cast(assigment.second.getToken())
 
         else:
             if type(assigment.second) == ParserFunction:
                 value = processFunction(assigment.second)
-                print(primitiveType, value.type)
+                #print(primitiveType, value.type)
                 if type(primitiveType) == VariableDeclarationCast and primitiveType == VariableDeclarationCast.auto:
                     primitiveType = value.type
                 elif primitiveType != value.type:
@@ -259,7 +259,7 @@ def map(parserObject, __newVariable=0):
                 value = value.value
             if type(assigment.second) == ParserOperation:
                 value = executeOperation(assigment.second)
-                print(primitiveType, value.type)
+                #print(primitiveType, value.type)
                 if type(primitiveType) == VariableDeclarationCast and primitiveType == VariableDeclarationCast.auto:
                     primitiveType = value.type
                 elif primitiveType != value.type:
@@ -281,9 +281,9 @@ def map(parserObject, __newVariable=0):
 
         variable = Variable(name, value, primitiveType, varType)
         LexerHash.shared().insert(variable)
-        LexerHash.shared().verbose()
-        print("Creating")
+        #LexerHash.shared().verbose()
+        #print("Creating")
         if __newVariable:
-            print("Creating")
+            #print("Creating")
             __newVariable(variable)
-    print(parserObject) 
+    #print(parserObject) 

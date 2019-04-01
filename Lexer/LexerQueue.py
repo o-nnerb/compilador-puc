@@ -187,7 +187,6 @@ class LexerQueue:
                 print(last)
     
     def write_out(self, function):
-        print(function)
         head = self.head
         while head:
             last = head.getNode()

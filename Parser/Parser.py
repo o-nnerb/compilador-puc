@@ -191,7 +191,7 @@ class ParserLineBlock:
 
     @staticmethod
     def merge(value):
-        print(value)
+        #print(value)
         if type(value) == ParserStringQueue and type(value.node) == ParserStringBlock:
             value.node.block = ParserLineBlock.merge(value.node.block)
             return value
@@ -527,9 +527,9 @@ class ParserContext(Enum):
 
 class ParserMerge:
     def merge(first, second):
-        ParserMerge.printObject(first)
-        ParserMerge.printObject(second)
-        print()
+        #ParserMerge.printObject(first)
+        #ParserMerge.printObject(second)
+        #print()
 
         if type(second) == ParserError:
             return second
@@ -647,7 +647,7 @@ class ParserMerge:
                 return second
 
             if type(second) == ParserFunctionCommaTree:
-                print(second.first)
+                #print(second.first)
                 if not second.first:
                     second.holder = ParserMerge.merge(first, second.getHolder())
                     return second

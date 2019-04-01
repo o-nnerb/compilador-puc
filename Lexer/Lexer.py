@@ -320,7 +320,7 @@ class Lexer:
         queue = LexerQueue.shared()
 
         (imax, token) = Lexer.parseLine(imin)
-        print(token)
+        #print(token)
         
         if imax < imin:
             if Lexer.charAt(imin) != '\t' and Lexer.charAt(imin) != '\n' and Lexer.charAt(imin) != ' ' and Lexer.charAt(imin) != '\r':

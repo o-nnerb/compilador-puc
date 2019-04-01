@@ -45,10 +45,10 @@ class Interpreter:
         
     @staticmethod
     def merge(left, right):
-        print("left ", end="")
-        print(left)
-        print("right ", end="")
-        print(right)
+        #print("left ", end="")
+        #print(left)
+        #print("right ", end="")
+        #print(right)
         if type(right) == InterpreterEmpty:
             return left
         
@@ -145,8 +145,6 @@ class Interpreter:
         while not queue.isEmpty():
             Interpreter.mount(queue).execute()
             #queue.verbose(showContent=False)
-
-        quit()
             
 
 def compareToken(object, values):
