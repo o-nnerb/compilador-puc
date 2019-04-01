@@ -1,4 +1,5 @@
 from enum import Enum, unique
+from Lexer.LexerEnum import LexerEnum
 
 class VariableType(Enum):
     nil = 0
@@ -46,4 +47,20 @@ class VariableType(Enum):
         if string == "boolean":
             return VariableType.boolean
 
+        return 0
+
+    @staticmethod
+    def cast(value):
+        if value == LexerEnum.string:
+            return VariableType.string
+        
+        if value == LexerEnum.integer:
+            return VariableType.integer
+        
+        if value == LexerEnum.float:
+            return VariableType.float
+        
+        if value == LexerEnum.boolean:
+            return VariableType.boolean
+        
         return 0

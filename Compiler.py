@@ -7,12 +7,16 @@ from Lexer.LexerQueue import LexerQueue
 
 Lexer.run(sys.argv)
 
-Parser.run()
-Interpreter.run()
+instructions = Parser.run()
+Interpreter.run(instructions)
 
 for arg in sys.argv:
     if arg == "-v":
         print("Tabela de variáveis")
         LexerHash.shared().verbose()
+
         print("\nLista de instruções")
         LexerQueue.shared().verbose()
+
+        print("\nLista de Instruções (Parser)")
+        instructions.verbose(showContent=False)

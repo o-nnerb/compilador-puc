@@ -22,18 +22,25 @@ class VariableConstantType(Enum):
     @staticmethod
     def isConstantType(string):
         return string == "let" or string == "var"
+    
+    def toString(self):
+        if self == VariableConstantType.let:
+            return "let"
+        
+        return "var"
 
 class Variable:
     name = 0
     value = 0
     type = 0
-    
-    mutable = VariableConstantType.var
+    varType = 0
 
-    def __init__(self, name, value, type):
+    def __init__(self, name, value, type, varType):
         self.name = name
         self.value = value
         self.type = type
+        self.varType = varType
+        self.cast(type)
 
     def getName(self):
         return self.name
@@ -44,6 +51,7 @@ class Variable:
 
     def setPrimiteValue(self, value):
         variable = self.copy()
+        variable.value = value
         self.setValue(variable)
     
     def copy(self):
@@ -80,9 +88,12 @@ class Variable:
         return False
     
     def copy(self):
-        return Variable(self.name, self.value, self.type)
+        return Variable(self.name, self.value, self.type, self.varType)
 
     def toString(self):
+        if self.type != VariableType.string:
+            print("Error: operação com string nâo suportado")
+            quit()
         self.type = VariableType.string
         return
     
@@ -97,7 +108,15 @@ class Variable:
         return
     
     def toBoolean(self):
-        self.value = self.value >= 0.5
+        if self.value == "true":
+            self.value = 1
+        elif self.value == "false":
+            self.value = 0
+        else:
+            if not self.value:
+                self.value = 0
+            else:
+                self.value = 1
         self.type = VariableType.boolean
         return
     
@@ -194,7 +213,10 @@ class Variable:
         ans.toInteger()
         other.toInteger()
 
+        print("first " + str(ans.value))
+        print("second " + str(other.value))
         ans.setPrimiteValue(ans.value % other.value)
+        print("result " + str(ans.value))
         return ans
      
     def __truediv__(self, other):
@@ -222,9 +244,12 @@ class Variable:
      
     def __eq__(self, other):
         # Equal to
-        (ans, other) = Variable.castWithPriorityType(self, other)        
+        (ans, other) = Variable.castWithPriorityType(self, other)  
+        print("Bf " + str(ans.value))      
+        print("Bf " + str(other.value)) 
         ans.setPrimiteValue(ans.value == other.value)
-        ans.toBoolean()
+        ans.toBoolean()  
+        print("Rf " + str(ans.value))   
         return ans
      
     def __ne__(self, other):
@@ -261,6 +286,9 @@ class Variable:
         return ans
 
     def assigment(self, other):
+        if self.varType == VariableConstantType.let:
+            print("Error: variavel " + self.name + " é constante.")
+            quit()
         other.read()
         other = other.copy()
         
@@ -276,7 +304,7 @@ class Variable:
                 print("Runtime error: (assigment) type not equal")
                 quit()
                 return False
-        
+    
         self.value = other.value
         self.type = other.type
         return True
@@ -293,12 +321,81 @@ class Variable:
         if self.type == VariableType.float:
             self.toFloat()
             return self
+                    
+        return self
 
+    def toAuto(self):
+        point = 0
+        self.value = str(self.value)
+        for char in self.value:
+            if char < '0' or char > '9':
+                if char == ".":
+                    point += 1
+                if point == 2 or char != ".":
+                    self.toString()
+                    return self
+                    
+        if point:
+            if self.value[len(self.value)-1] != ".":
+                self.toFloat()
+                return self
+        
+        self.toInteger()
         return self
 
     def verbose(self):
         typeName = self.type.name()
-        return "_"+typeName+"("+self.name+", "+str(self.value)+")"
+        return self.varType.toString()+"_"+typeName+"("+self.name+", "+str(self.value)+")"
+
+    @staticmethod
+    def withOperator(operator, first, second):
+        print(operator)
+        if operator == "+":
+            print((first + second).value)
+            return first + second
+        
+        if operator == "-":
+            return first - second
+        
+        if operator == "/":
+            return first / second
+        
+        if operator == "%":
+            return first % second
+        
+        if operator == "*":
+            return first * second
+        
+        if operator == "^":
+            return first ** second
+
+        #boolean
+
+        if operator == "<":
+            return first < second
+        
+        if operator == ">":
+            return first > second
+        
+        if operator == "<=":
+            return first <= second
+        
+        if operator == ">=":
+            return first >= second
+        
+        if operator == "!=":
+            return first != second
+        
+        if operator == "==":
+            return first == second
+
+        if operator == "and":
+            return first and second
+        
+        if operator == "or":
+            return first or second
+
+        return False
 
 class VariableNil(Variable):
     @staticmethod
@@ -308,27 +405,27 @@ class VariableNil(Variable):
 class VariableString(Variable):
     @staticmethod
     def cast(variable):        
-        return variable.cast(Variable.string)
+        return variable.cast(VariableType.string)
 
 class VariableInteger(Variable):
     @staticmethod
     def cast(variable):
-        return variable.cast(Variable.integer)
+        return variable.cast(VariableType.integer)
 
 class VariableFloat(Variable):
     @staticmethod
     def cast(variable):
-        return variable.cast(Variable.float)
+        return variable.cast(VariableType.float)
 
 class VariableBoolean(Variable):
     @staticmethod
     def cast(variable):
-        return variable.cast(Variable.boolean)
+        return variable.cast(VariableType.boolean)
 
 class VariableNumber(Variable):
     
     def __init__(self, variable):
-        super(VariableNumber, self).__init__(variable.name, variable.value, variable.type)
+        super(VariableNumber, self).__init__(variable.name, variable.value, variable.type, variable.varType)
 
         if not self.isNumber:
             print("(Runtime error): can't parse variable to number format")
@@ -340,8 +437,8 @@ class VariableNumber(Variable):
         return VariableType.compare(self.type, [Variable.integer, Variable.float, Variable.boolean])
 
     def asSuper(self):
-        return Variable(self.name, self.value, self.type)
+        return Variable(self.name, self.value, self.type, self.varType)
 
     @staticmethod
     def cast(variable):
-        return variable.cast(Variable.number)
+        return variable.cast(VariableType.number)

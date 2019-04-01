@@ -3,6 +3,8 @@ from Interpreter.Variable.Variable import Variable, VariableType
 from Lexer.LexerEnum import LexerEnum
 from Lexer.LexerQueue import LexerQueue
 
+from .InterpreterMap import map
+
 class InterpreterStack:
     value = 0
     def __init__(self, value):
@@ -102,21 +104,23 @@ class Interpreter:
 
         object = queue.getHead()
         queue.toRight()
-        
-        if compareToken(object, LexerEnum.endline) or object.getValue() == ';':
-            return InterpreterEmpty()
 
-        if object.getValue() == '(':
-            return Interpreter.merge(InterpreterStack(Interpreter.first(queue)), Interpreter.operator(queue))
+        map(object)
 
-        if object.getValue() == ')':
-            return InterpreterUnstack()
+        #if compareToken(object, LexerEnum.endline) or object.getValue() == ';':
+        #    return InterpreterEmpty()
 
-        if compareToken(object, [LexerEnum.id, LexerEnum.integer, LexerEnum.float, LexerEnum.boolean]):
-            return Interpreter.merge(InterpreterId(object), Interpreter.operator(queue))
+        #if object.getValue() == '(':
+        #    return Interpreter.merge(InterpreterStack(Interpreter.first(queue)), Interpreter.operator(queue))
+
+        #if object.getValue() == ')':
+        #    return InterpreterUnstack()
+
+        #if compareToken(object, [LexerEnum.id, LexerEnum.integer, LexerEnum.float, LexerEnum.boolean]):
+        #    return Interpreter.merge(InterpreterId(object), Interpreter.operator(queue))
 
         # keyword
-        return Runnable()
+        #return Runnable()
 
     @staticmethod
     def mount(queue):
@@ -133,14 +137,16 @@ class Interpreter:
         return
 
     @staticmethod
-    def run():
-        queue = LexerQueue.shared().copy()
+    def run(queue):
+        queue = queue.copy()
         queue.needsPersist(True)
         queue.toFirst()
 
         while not queue.isEmpty():
             Interpreter.mount(queue).execute()
-            queue.verbose()
+            #queue.verbose(showContent=False)
+
+        quit()
             
 
 def compareToken(object, values):

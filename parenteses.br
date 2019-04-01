@@ -1,1 +1,1 @@
-"\()"
+let a = console(read: "Teste: ")

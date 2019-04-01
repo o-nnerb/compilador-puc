@@ -320,6 +320,9 @@ class ParserDeclarationVariable:
     def isDeclarationVariable(object):
         return VariableConstantType.isConstantType(object.getValue())
 
+    def map(self):
+        return (self.variable, self.type, self.varType)
+
 class ParserDeclarationExplicit:
     def __init__(self):
         return
@@ -542,6 +545,8 @@ class ParserMerge:
         if type(first) == ParserAssigment:
             if type(second) == ParserVariable:
                 return ParserOperationAssigment(0, second, first)
+            if type(second) == ParserStringQueue:
+                return ParserOperationAssigment(0, second, first)
             
             if type(second) == ParserOperation and second.first:
                 return ParserOperationAssigment(0, second, first)
@@ -554,7 +559,10 @@ class ParserMerge:
             
             if type(second) == ParserFunction:
                 return ParserOperationAssigment(0, second, first)
-        
+
+            if type(second) == ParserFutureFunction:
+                return ParserMerge.merge(first, ParserMerge.merge(second.first.value, second.second))
+                
         if type(first) == ParserOperator:
             if type(second) == ParserVariable:
                 if second.getToken() == LexerEnum.string:
@@ -680,6 +688,9 @@ class ParserMerge:
             if type(second) == ParserFixOperation:
                 return ParserLineBlock(second)
 
+            if type(second) == ParserFutureFunction:
+                return ParserMerge.merge(first, ParserMerge.merge(second.first.value, second.second))
+
         if type(first) == ParserStringOperatorAppendE:
             if type(second) == ParserVariable:
                 return ParserStringQueue().insert(second).insert(first)
@@ -801,6 +812,9 @@ class ParserMerge:
 
             if type(second) == ParserFutureFunction:
                 return ParserMerge.merge(first, ParserMerge.merge(second.first.value, second.second))
+
+            if type(second) == ParserStringQueue:
+                return ParserFunctionVariable(second)
 
         if type(first) == ParserWhile:
             if type(second) == LexerQueue:
@@ -1015,10 +1029,10 @@ class Parser:
     # ParserOperationAssigment
     def isDeclarationValid(self, keyword, merged):
         if type(merged) == ParserOperationAssigment:
-            return ParserDeclarationVariable(merged, VariableDeclarationCast.auto, VariableConstantType.toConstantType(keyword))
+            return ParserDeclarationVariable(merged, VariableDeclarationCast.auto, VariableConstantType.toConstantType(keyword.getValue()))
 
         if type(merged) == ParserDeclarationVariable:
-            merged.varType = VariableConstantType.toConstantType(keyword)
+            merged.varType = VariableConstantType.toConstantType(keyword.getValue())
             return merged
 
         return ParserError()
@@ -1149,7 +1163,8 @@ class Parser:
             ParserVariableType,
             ParserOperator,
             ParserPFixOperator,
-            ParserAssigment
+            ParserAssigment,
+            ParserStringAppend
         ], ParserError)
         
     def block(self):
@@ -1242,9 +1257,7 @@ class Parser:
 
             instructions.insert(line)
         
-        print("Lista de Instruções")
-        instructions.verbose(showContent=False)
-        quit()
+        return instructions
 
 def compareToken(object, values):
     return LexerEnum.compare(object, values)

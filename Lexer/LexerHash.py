@@ -3,8 +3,8 @@ from Interpreter.Variable.Variable import Variable, VariableType
 class LexerHashNode:
     variable = 0
 
-    def __init__(self, key):
-        self.variable = Variable(key, 0, VariableType.nil)
+    def __init__(self, variable):
+        self.variable = variable
     
     @staticmethod
     def create(key, value, type):
@@ -15,7 +15,7 @@ class LexerHashNode:
 
     def getVariable(self):
         return self.variable
-
+        
 class LexerHash:
     tabela = []
 
@@ -39,9 +39,9 @@ class LexerHash:
 
         return key%100
 
-    def insert(self, lexerToken):
-        key = LexerHash.hashKey(lexerToken.getValue())
-        node = LexerHashNode(lexerToken.getValue())
+    def insert(self, variable):
+        key = LexerHash.hashKey(variable.getName())
+        node = LexerHashNode(variable)
         while len(self.tabela) <= key:
             self.tabela.append(0)
         
@@ -52,6 +52,7 @@ class LexerHash:
         if type(self.tabela[key]) == list:
             for element in self.tabela[key]:
                 if element.variable.getName() == node.variable.getName():
+                    print("Error: variable already exist")
                     return
             self.tabela[key].append(node)
             return
@@ -60,6 +61,33 @@ class LexerHash:
             return
             
         self.tabela[key] = [self.tabela[key], node]
+
+    def remove(self, value):
+        key = int(LexerHash.hashKey(value))
+        if len(self.tabela) <= key:
+            return False
+        
+        if not self.tabela[key]:
+            return False
+
+        if type(self.tabela[key]) == list:
+            i = 0
+            for node in self.tabela[key]:
+                if node.variable.getName() == value:
+                    if i == 0:
+                        self.tabela[key] = self.tabela[key][1:len(self.tabela[key])]
+                        return
+                    else:
+                        first = self.tabela[key][0:i]
+                        second = self.tabela[key][i+1:len(self.tabela[key])]
+                        self.tabela[key] = first + second
+                        return
+                i += 1
+
+            return False
+        
+        self.tabela[key] = 0
+
     
     def getObject(self, value):
         key = int(LexerHash.hashKey(value))
@@ -86,6 +114,3 @@ class LexerHash:
                         print(element.variable.verbose())
                 else:
                     print(node.variable.verbose())
-    
-
-print("Alloc")
