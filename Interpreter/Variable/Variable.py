@@ -188,20 +188,30 @@ class Variable:
 
     def __add__(self, other):
         # Addition
-        (ans, other) = Variable.castWithPriorityType(self, other)        
+        (ans, other) = Variable.castWithPriorityType(self, other)
+
+        if ans.type == VariableType.string: 
+            print("Runtime: can't execute binary operations with type string")
+            quit()
         ans.setPrimiteValue(ans.value + other.value)
         return ans
     
     def __mul__(self, other):
         # Multiplication
-        (ans, other) = Variable.castWithPriorityType(self, other)        
+        (ans, other) = Variable.castWithPriorityType(self, other)      
+        if ans.type == VariableType.string: 
+            print("Runtime: can't execute binary operations with type string")
+            quit()  
         ans.setPrimiteValue(ans.value * other.value)
-
         return ans
      
     def __sub__(self, other):
         # Subtraction
-        (ans, other) = Variable.castWithPriorityType(self, other)        
+        (ans, other) = Variable.castWithPriorityType(self, other) 
+        if ans.type == VariableType.string: 
+            print("Runtime: can't execute binary operations with type string")
+            quit()       
+
         ans.setPrimiteValue(ans.value - other.value)
         return ans
      
@@ -212,6 +222,14 @@ class Variable:
         
         ans.toInteger()
         other.toInteger()
+        
+        if other.type == VariableType.int and other.value == 0:
+            print("Runtime: can't apply mod(%) with 0 as divider")
+            quit()       
+
+        if ans.type == VariableType.string: 
+            print("Runtime: can't execute binary operations with type string")
+            quit()      
 
         #print("first " + str(ans.value))
         #print("second " + str(other.value))
@@ -221,24 +239,36 @@ class Variable:
      
     def __truediv__(self, other):
         # Division
-        (ans, other) = Variable.castWithPriorityType(self, other)        
+        (ans, other) = Variable.castWithPriorityType(self, other)  
+        if other.value == 0:
+            print("Runtime: can't apply div(/) with 0 as divider")
+            quit()       
+            
+        if ans.type == VariableType.string: 
+            print("Runtime: can't execute binary operations with type string")
+            quit()         
+
         ans.setPrimiteValue(ans.value / other.value)
         return ans
 
     def __pow__(self, other):
         (ans, other) = Variable.castWithPriorityType(self, other)        
+        if ans.type == VariableType.string: 
+            print("Runtime: can't execute binary operations with type string")
+            quit()         
+
         ans.setPrimiteValue(ans.value ** other.value)
         return ans
      
     def __lt__(self, other):
         # Less than
-        (ans, other) = Variable.castWithPriorityType(self, other)        
+        (ans, other) = Variable.castWithPriorityType(self, other)         
         ans.setPrimiteValue(ans.value < other.value)
         return ans
      
     def __le__(self, other):
         # Less than or equal to
-        (ans, other) = Variable.castWithPriorityType(self, other)        
+        (ans, other) = Variable.castWithPriorityType(self, other)   
         ans.setPrimiteValue(ans.value <= other.value)
         return ans
      
@@ -274,13 +304,19 @@ class Variable:
         return ans
         
     def __and2__(self, other):
-        (ans, other) = Variable.castWithPriorityType(self, other)   
+        (ans, other) = Variable.castWithPriorityType(self, other)         
+        if ans.type == VariableType.string: 
+            print("Runtime: can't execute binary operations with type string")
+            quit()         
         ans.setPrimiteValue(ans.value and other.value)
         ans.toBoolean()
         return ans
 
     def __or2__(self, other):
-        (ans, other) = Variable.castWithPriorityType(self, other)   
+        (ans, other) = Variable.castWithPriorityType(self, other)        
+        if ans.type == VariableType.string: 
+            print("Runtime: can't execute binary operations with type string")
+            quit()          
         ans.setPrimiteValue(ans.value or other.value)
         ans.toBoolean()
         return ans

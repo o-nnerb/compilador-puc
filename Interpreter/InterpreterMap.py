@@ -1,32 +1,68 @@
-from Parser.Parser import ParserBreak, ParserFunction, ParserFunctionVariable, ParserFor, ParserForInRange, VariableDeclarationCast, ParserWhile, ParserIf, ParserStringBlock, ParserStringQueue, ParserOperationAssigment, ParserVariableType, ParserDeclarationVariable, ParserVariable, ParserOperation, ParserFunction, ParserIf, ParserEmpty
+from Parser.Parser import ParserBreak, ParserFunction, ParserFunctionVariable, ParserFor, ParserLineBlock, ParserForInRange, VariableDeclarationCast, ParserWhile, ParserIf, ParserStringBlock, ParserStringQueue, ParserOperationAssigment, ParserVariableType, ParserDeclarationVariable, ParserVariable, ParserOperation, ParserFunction, ParserIf, ParserEmpty
 from Interpreter.Variable.Variable import VariableType, Variable, VariableConstantType
 from Lexer.LexerHash import LexerHash
 import sys
 import readline
 
+class InterpreterOperator:
+    operator = 0
+    first = 0
+    second = 0
+
+    def __init__(self, operator, first, second):
+        self.operator = operator
+        if first:
+            self.first = first.copy()
+        if second:
+            self.second = second.copy()
+
+class InterpreterAssigment:
+    operator = 0
+    first = 0
+    second = 0
+
+    def __init__(self, operator, first, second):
+        self.operator = operator
+        if first:
+            self.first = first.copy()
+        if second:
+            self.second = second.copy()
+
+globalInstructions = []
+
 def executeOperation(operation):
     if type(operation) == ParserOperation:
-        if type(operation.second) == ParserOperation:
-            operation.second = executeOperation(operation.second)
-            operation.first = executeOperation(operation.first)
-            return Variable.withOperator(operation.operator.getValue(), operation.first, operation.second)
+        first = executeOperation(operation.first)
+        second = executeOperation(operation.second)
 
-        if type(operation.second) == ParserVariable:
-            second = executeOperation(operation.second)
-            first = executeOperation(operation.first)
-            
-            #print(operation.operator.getValue(), first)
-            return Variable.withOperator(operation.operator.getValue(), first, second)
+        variable = Variable.withOperator(operation.operator.getValue(), first, second)
 
-    elif type(operation) == ParserVariable:
+        if type(operation.first) != ParserVariable:
+            first = 0
+        
+        if type(operation.second) != ParserVariable:
+            second = 0
+
+        globalInstructions.append(InterpreterOperator(operation.operator.getValue(), first, second))
+
+        return variable
+    
+    if type(operation) == ParserVariable:
         if operation.isStoreVariable():
             variable = LexerHash.shared().getObject(operation.getValue())
             if not variable:
-                print("Error: referenciando a uma varíavel não existente")
+                print("Error: referenciando a uma varíavel que nâo foi declarada ainda")
                 quit()
             return variable
-        else:
-            return Variable("ans", operation.getValue(), VariableType.cast(operation.getToken()), VariableConstantType.var)
+        
+        return Variable("ans", operation.getValue(), VariableType.cast(operation.getToken()), VariableConstantType.var)
+
+    if type(operation) == ParserLineBlock:
+        return executeOperation(operation.value)
+
+    print("Error: can't recognize " + str(operation))
+    return
+
 
 def processBlock(queue):
     arrayVar = []
@@ -197,6 +233,7 @@ def intepreterString(queue):
     return variable
 
 def map(parserObject, __newVariable=0):
+    print(parserObject)
     if type(parserObject) == ParserEmpty:
         return 
     
@@ -215,6 +252,7 @@ def map(parserObject, __newVariable=0):
         else:
             value = executeOperation(parserObject.second)
         #print(value)
+        globalInstructions.append(InterpreterAssigment("=", variable, value))
         variable.assigment(value)
         #LexerHash.shared().verbose()
     
@@ -234,18 +272,14 @@ def map(parserObject, __newVariable=0):
             print("Error: Can't create the same variable")
             quit()
 
-
         if type(assigment.second) == ParserVariable:
-            value = assigment.second.getValue()
-            if type(primitiveType) == ParserVariableType:
-                primitiveType = VariableType.isPrimitive(primitiveType.type.getValue())
-                if primitiveType != VariableType.cast(assigment.second.getToken()):
-                    print("Error: Can't assigment diferent types in declaration")
-                    quit()
+            value = executeOperation(assigment.second)
 
             if type(primitiveType) == VariableDeclarationCast and primitiveType == VariableDeclarationCast.auto:
-                #print("do stuff")
-                primitiveType = VariableType.cast(assigment.second.getToken())
+                primitiveType = value.type
+            elif primitiveType != value.type:
+                print("Error: Can't assigment diferent types in declaration")
+                quit()
 
         else:
             if type(assigment.second) == ParserFunction:
@@ -256,7 +290,6 @@ def map(parserObject, __newVariable=0):
                 elif primitiveType != value.type:
                     print("Error: Can't assigment diferent types in declaration")
                     quit()
-                value = value.value
             if type(assigment.second) == ParserOperation:
                 value = executeOperation(assigment.second)
                 #print(primitiveType, value.type)
@@ -266,7 +299,6 @@ def map(parserObject, __newVariable=0):
                     print("Error: Can't assigment diferent types in declaration")
                     quit()
                 
-                value = value.value
             if type(assigment.second) == ParserStringQueue:
                 value = intepreterString(assigment.second)
                 if type(primitiveType) == VariableDeclarationCast and primitiveType == VariableDeclarationCast.auto:
@@ -274,12 +306,12 @@ def map(parserObject, __newVariable=0):
                 elif primitiveType != value.type:
                     print("Error: Can't assigment diferent types in declaration")
                     quit()
-                value = value.value
         
         if type(primitiveType) == ParserVariableType:
             primitiveType = VariableType.isPrimitive(primitiveType.type.getValue())        
 
-        variable = Variable(name, value, primitiveType, varType)
+        variable = Variable(name, value.value, primitiveType, varType)
+        globalInstructions.append(InterpreterAssigment("=", variable, value))
         LexerHash.shared().insert(variable)
         #LexerHash.shared().verbose()
         #print("Creating")

@@ -1,1 +1,2 @@
-let a = console(read: "Teste: ")
+var a = 1 + (1 + 1)
+let b = a + 1
