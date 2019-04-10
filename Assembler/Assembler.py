@@ -152,26 +152,32 @@ class AssemblerInstruction:
         return self.counter
 
     @staticmethod
-    def load(pointer, register=0, isMemory=True):
+    def load(pointer, register=0):
         self = AssemblerInstruction.shared()
 
         if not register:
             register = self.register.firstAvailable()
             register.lock()
         
-        if isMemory:
-            pointer = "["+str(pointer)+"]"
+        pointer = "["+str(pointer)+"]"
         
         return AssemblerContext(register, self.save("load " + register.name() + ", " + str(pointer)))
 
     @staticmethod
-    def store(pointer, register, isMemory=True):
+    def store(pointer, register):
         self = AssemblerInstruction.shared()
         register.unlock()
-        if isMemory:
-            pointer = "["+str(pointer)+"]"
+        pointer = "["+str(pointer)+"]"
 
         return AssemblerContext(register, self.save("store " + str(pointer) + ", " + register.name()))
+
+    @staticmethod
+    def mov(first, second):
+        self = AssemblerInstruction.shared()
+        first.lock()
+        second = self.asSomething(second)
+
+        return AssemblerContext(first, self.save("mov " + first.name() + ", " + second))
     
     @staticmethod
     def asSomething(register):
@@ -347,7 +353,7 @@ class AssemblerOperationContext:
 
         if not holder:
             holder = AssemblerInstruction.shared().register.firstAvailable()
-            AssemblerInstruction.load(0, holder, False)
+            AssemblerInstruction.mov(holder, AssemblerValueConstant(0))
 
         if object.operator == "+":
             holder = AssemblerInstruction.add(object.first, object.second, holder)
@@ -432,7 +438,7 @@ class Assembler:
                         holder = AssemblerElementContext.toAssembly(instruction)
                         flag = True
                         if type(holder) == AssemblerValueConstant:
-                            holder = AssemblerInstruction.load(holder.value, 0, False).register
+                            holder = AssemblerInstruction.load(holder.value, 0).register
             
                 if not flag:
                     holder = Assembler.isOperation(instruction)
