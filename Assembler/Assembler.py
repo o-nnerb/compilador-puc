@@ -1,16 +1,13 @@
 from enum import Enum, unique
 from Lexer.LexerQueue import LexerQueue
-from Parser.Parser import ParserBreak, ParserFunction, ParserFunctionVariable, ParserFor, ParserForInRange, VariableDeclarationCast, ParserWhile, ParserIf, ParserStringBlock, ParserStringQueue, ParserOperationAssigment, ParserVariableType, ParserDeclarationVariable, ParserVariable, ParserOperation, ParserFunction, ParserIf, ParserEmpty
-from Interpreter.InterpreterMap import globalInstructions, InterpreterAssigment, InterpreterOperator
+from .AssemblerMap import Mapper, Operation, AssemblerAction, Element
 
 class AssemblerVariable:
     pointer = 0
-    value = 0
     name = 0
 
-    def __init__(self, name, value, pointer):
+    def __init__(self, name, pointer):
         self.name = name
-        self.value = value
         self.pointer = pointer
     
 class AssemblerVariables:
@@ -19,8 +16,10 @@ class AssemblerVariables:
     def __init__(self):
         self.allVariables = []
 
-    def save(self, variable):
-        self.allVariables.append(AssemblerVariable(variable.name, variable.value, len(self.allVariables)+1))
+    def save(self, variable, register):
+        variable = AssemblerVariable(variable.name, len(self.allVariables))
+        AssemblerInstruction.store(variable.pointer, register)
+        self.allVariables.append(variable)
 
     def findPointer(self, variable):
         for _variable in self.allVariables:
@@ -28,6 +27,7 @@ class AssemblerVariables:
                 return _variable.pointer
             
         return -1
+
 
 class AssemblerInstructionNode:
     globalCounter = 0
@@ -152,18 +152,25 @@ class AssemblerInstruction:
         return self.counter
 
     @staticmethod
-    def load(pointer):
+    def load(pointer, register=0, isMemory=True):
         self = AssemblerInstruction.shared()
 
-        register = self.register.firstAvailable()
-        register.lock()
+        if not register:
+            register = self.register.firstAvailable()
+            register.lock()
+        
+        if isMemory:
+            pointer = "["+str(pointer)+"]"
         
         return AssemblerContext(register, self.save("load " + register.name() + ", " + str(pointer)))
 
     @staticmethod
-    def store(pointer, register):
+    def store(pointer, register, isMemory=True):
         self = AssemblerInstruction.shared()
         register.unlock()
+        if isMemory:
+            pointer = "["+str(pointer)+"]"
+
         return AssemblerContext(register, self.save("store " + str(pointer) + ", " + register.name()))
     
     @staticmethod
@@ -310,6 +317,80 @@ class AssemblerInstruction:
     def write(first):
         return AssemblerContext(first, self.save("write " + first.name()))
 
+class AssemblerElementContext:
+    @staticmethod
+    def toAssembly(object):
+        if type(object) != Element:
+            return
+        
+        print(object.action)
+        if object.action == AssemblerAction.constant:
+            return AssemblerValueConstant(object.value)
+        if object.action == AssemblerAction.load:
+            pointer = Assembler.variables.findPointer(object)
+            return  AssemblerInstruction.load(pointer).register
+
+class AssemblerOperationContext:
+
+    @staticmethod
+    def doOperation(object):
+        holder = 0
+        unlock = 0
+        if type(object.first) == AssemblerRegisterControl:
+            holder = object.first
+        
+        if type(object.second) == AssemblerRegisterControl:
+            if not holder:
+                holder = object.second
+            else:
+                unlock = object.second
+
+        if not holder:
+            holder = AssemblerInstruction.shared().register.firstAvailable()
+            AssemblerInstruction.load(0, holder, False)
+
+        if object.operator == "+":
+            holder = AssemblerInstruction.add(object.first, object.second, holder)
+
+        if object.operator == "-":
+            holder = AssemblerInstruction.sub(object.first, object.second, holder)
+
+        if object.operator == "*":
+            holder = AssemblerInstruction.mul(object.first, object.second, holder)
+
+        if object.operator == "/":
+            holder = AssemblerInstruction.div(object.first, object.second, holder)
+
+        if object.operator == "%":
+            holder = AssemblerInstruction.mod(object.first, object.second, holder)
+
+        if object.operator == "^":
+            holder = AssemblerInstruction.pot(object.first, object.second, holder)
+
+        if object.operator == "and":
+            holder = AssemblerInstruction.cmpAnd(object.first, object.second, holder)
+
+        if object.operator == "or":
+            holder = AssemblerInstruction.cmpOr(object.first, object.second, holder)
+
+        if unlock:
+            unlock.unlock()
+
+        return holder
+
+    @staticmethod
+    def toAssembly(object):
+        if type(object) == Operation:
+            object.first = AssemblerOperationContext.toAssembly(object.first)
+            object.second = AssemblerOperationContext.toAssembly(object.second)
+            
+            return AssemblerOperationContext.doOperation(object).register
+        
+        if type(object) == Element:
+            return AssemblerElementContext.toAssembly(object)
+
+        return 0 
+
 class Assembler:
     variables = AssemblerVariables()
     holder = 0
@@ -319,60 +400,47 @@ class Assembler:
         print(assigment.operator)
 
     @staticmethod
-    def isOperator(operator):
-        first = operator.first
-        second = operator.second
-        operator = operator.operator
+    def isOperation(object):
+        if type(object) != Operation:
+            return False
 
-        if first.name == "ans":
-            first = AssemblerValueConstant(first.value)
-        else:
-            pointer = Assembler.variables.findPointer(first)
-            first = AssemblerInstruction.load(pointer).register
-
-        if second.name == "ans":
-            second = AssemblerValueConstant(second.value)
-        else:
-            pointer = Assembler.variables.findPointer(second)
-            second = AssemblerInstruction.load(pointer).register
-
-        holder = 0
-        if Assembler.holder:
-            holder = Assembler.holder.register
-
-        if operator == "+":
-            holder = AssemblerInstruction.add(first, second, holder)
-
-        if type(second) == AssemblerContext:
-            second.unlock()
+        return AssemblerOperationContext.toAssembly(object)
         
-        if type(first) == AssemblerContext:
-            second.unlock()
-
-        if not Assembler.holder:
-            Assembler.holder = holder
-            return
-        
-        if Assembler.holder.register != holder.register:
-            Assembler.holder.register.unlock()
-            Assembler.holder = holder
-            return
-        
-
-        
-
     @staticmethod
     def run(queue):
-        Assembler.queue = globalInstructions.copy()
-        queue = Assembler.queue
+        Assembler.queue = queue.copy()
 
-        for instruction in queue:
-            print(instruction)
+        while not Assembler.queue.isEmpty():
+            instructions = Mapper.map(Assembler.queue.popFirst())
+            print(instructions)
+            
+            holder = 0
+            for instruction in instructions:
+                flag = 0
+                if holder and type(holder) == AssemblerRegisterControl:
+                    if type(instruction) == Element:
+                        if instruction.action == AssemblerAction.create:
+                            Assembler.variables.save(instruction, holder)
+                            flag = True
+                        if instruction.action == AssemblerAction.store:
+                            pointer = Assembler.variables.findPointer(instruction)
+                            AssemblerInstruction.store(pointer, holder).register
+                            flag = True
+                    
+                else:
+                    if type(instruction) == Element:
+                        holder = AssemblerElementContext.toAssembly(instruction)
+                        flag = True
+                        if type(holder) == AssemblerValueConstant:
+                            holder = AssemblerInstruction.load(holder.value, 0, False).register
+            
+                if not flag:
+                    holder = Assembler.isOperation(instruction)
+                    flag = True
 
-            if type(instruction) == InterpreterOperator:
-                Assembler.isOperator(instruction)
-
-            if type(instruction) == InterpreterAssigment:
-                Assembler.isAssigment(instruction)
-
-        print(AssemblerInstruction.shared().instruction)
+            if holder:
+                holder.unlock()
+                holder = 0
+                AssemblerInstruction.shared().instruction += "\n"
+            
+            print(AssemblerInstruction.shared().instruction)
