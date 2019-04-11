@@ -20,13 +20,56 @@ class ALexerTokenType(Enum):
     register = 9
     value = 10
 
+    def isKeyword(self):
+        if self == ALexerTokenType.operation:
+            return True
+        
+        if self == ALexerTokenType.jump:
+            return True
+        
+        if self == ALexerTokenType.jumpCmp:
+            return True
+        
+        if self == ALexerTokenType.mov:
+            return True
+        
+        if self == ALexerTokenType.store:
+            return True
+        
+        if self == ALexerTokenType.load:
+            return True
+
+        return False
+    
+    def countParameters(self):
+        if self == ALexerTokenType.operation:
+            return 3
+        
+        if self == ALexerTokenType.jump:
+            return 1
+        
+        if self == ALexerTokenType.jumpCmp:
+            return 3
+        
+        if self == ALexerTokenType.mov:
+            return 2
+        
+        if self == ALexerTokenType.store:
+            return 2
+        
+        if self == ALexerTokenType.load:
+            return 2
+
+        return 0
+
+
 class ALexerToken:
     value = 0
-    type = 0
+    token = 0
 
-    def __init__(self, value, type):
+    def __init__(self, value, token):
         self.value = value
-        self.type = type
+        self.token = token
 
 class ALexerRegister:
     @staticmethod

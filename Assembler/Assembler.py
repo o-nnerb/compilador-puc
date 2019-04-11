@@ -56,6 +56,24 @@ class AssemblerRegister(Enum):
     r7 = "R7"
     r8 = "R8"
 
+    def fromString(string):
+        all = [
+            (1, AssemblerRegister.r1),
+            (2, AssemblerRegister.r2),
+            (3, AssemblerRegister.r3),
+            (4, AssemblerRegister.r4),
+            (5, AssemblerRegister.r5),
+            (6, AssemblerRegister.r6),
+            (7, AssemblerRegister.r7),
+            (8, AssemblerRegister.r8),
+        ]
+
+        for (index, reg) in all:
+            if string == "R" + str(index):
+                return reg
+        
+        return 0
+
 class AssemblerRegisterControl:
     register = 0
     isEnable = True
