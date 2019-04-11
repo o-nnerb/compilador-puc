@@ -1,8 +1,10 @@
 # Assembler Parser
 from Assembler.Lexer.ALexer import ALexerToken, ALexerTokenType
 from Assembler.Assembler import AssemblerRegister, AssemblerValueConstant
+import traceback
 
 def dieUnrecognized(some):
+    traceback.print_stack()
     print("Assembler Parser error: unrecognized " + str(some))
     quit()
 
@@ -22,7 +24,7 @@ class AParserOperation:
     def init():
         return AParserOperation(0, 0, 0, 0) 
     
-    @statimethod
+    @staticmethod
     def isSomething(some):
         if some.token == ALexerTokenType.register:
             return AssemblerRegister.fromString(some.value)
@@ -69,6 +71,21 @@ class AParserOperation:
         
         return True
 
+    @staticmethod
+    def asOperation(objects):
+        if len(objects) != 4:
+            return False
+        
+        handler = AParserOperation.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
+
+
 class AParserJump:
     code = 0
     first = 0
@@ -81,7 +98,7 @@ class AParserJump:
     def init():
         return AParserJump(0, 0) 
     
-    @statimethod
+    @staticmethod
     def isSomething(some):
         if some.token == ALexerTokenType.value:
             return AssemblerValueConstant(some.value)
@@ -109,6 +126,20 @@ class AParserJump:
         
         return True
 
+    @staticmethod
+    def asJump(objects):
+        if len(objects) != 2:
+            return False
+        
+        handler = AParserJump.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
+
 class AParserJumpCMP:
     code = 0
     first = 0
@@ -125,7 +156,7 @@ class AParserJumpCMP:
     def init():
         return AParserJumpCMP(0, 0, 0, 0) 
     
-    @statimethod
+    @staticmethod
     def isSomething(some):
         if some.token == ALexerTokenType.register:
             return AssemblerRegister.fromString(some.value)
@@ -172,6 +203,20 @@ class AParserJumpCMP:
         
         return True
 
+    @staticmethod
+    def asJumpCMP(objects):
+        if len(objects) != 4:
+            return False
+        
+        handler = AParserJumpCMP.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
+
 class AParserMov:
     code = 0
     first = 0
@@ -186,7 +231,7 @@ class AParserMov:
     def init():
         return AParserMov(0, 0, 0) 
     
-    @statimethod
+    @staticmethod
     def isSomething(some):
         if some.token == ALexerTokenType.register:
             return AssemblerRegister.fromString(some.value)
@@ -213,9 +258,6 @@ class AParserMov:
             dieUnrecognized(some.token)
 
     def isValid(self):
-        if not self.third:
-            return False
-        
         if not self.second:
             return False
         
@@ -226,6 +268,20 @@ class AParserMov:
             return False
         
         return True
+
+    @staticmethod
+    def asMov(objects):
+        if len(objects) != 3:
+            return False
+        
+        handler = AParserMov.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
 
 class AParserStore:
     code = 0
@@ -268,7 +324,7 @@ class AParserStore:
                 dieUnrecognized(some.token)
 
         if not self.code:
-            if some.token == ALexerTokenType.mov:
+            if some.token == ALexerTokenType.store:
                 self.code = some.value
                 return self
 
@@ -286,6 +342,21 @@ class AParserStore:
         
         return True
 
+    @staticmethod
+    def asStore(objects):
+        if len(objects) != 5:
+            return False
+        
+        handler = AParserStore.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
+
+
 class AParserLoad:
     code = 0
     first = 0
@@ -301,11 +372,6 @@ class AParserLoad:
         return AParserLoad(0, 0, 0) 
 
     def merge(self, some):  
-        if not self.first:
-            if some.token == ALexerTokenType.register:
-                self.first = AssemblerRegister.fromString(some.value)
-                return self  
-
         if not self.second:
             if some.token == ALexerTokenType.memory and some.value == ']':
                 self.second = some
@@ -325,9 +391,14 @@ class AParserLoad:
                         return self
             
                 dieUnrecognized(some.token)
+        
+        if not self.first:
+            if some.token == ALexerTokenType.register:
+                self.first = AssemblerRegister.fromString(some.value)
+                return self  
 
         if not self.code:
-            if some.token == ALexerTokenType.mov:
+            if some.token == ALexerTokenType.load:
                 self.code = some.value
                 return self
 
@@ -345,31 +416,68 @@ class AParserLoad:
         
         return True
 
+    @staticmethod
+    def asLoad(objects):
+        if len(objects) != 5:
+            return False
+        
+        handler = AParserLoad.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
+
 class AParserLine:
+    line = 0
+    rest = 0
+    def __init__(self, line, rest):
+        self.line = line
+        self.rest = rest
+
     @staticmethod
     def filter(objects):
         line = []
-        first = objects.pop()
-        if len(first) == 0:
+        first = objects.pop(0)
+        if len(objects) == 0:
             print("Assembler Parser error: incomplete instruction")
             quit()
         
-        if not first.isKeyword():
+        if not first.token.isKeyword():
+            print(first.token)
             print("Assembler Parser error: first element should be a instruction keyword")
             quit()
         
         line.append(first)
-        size = first.countParameters()
+        size = first.token.countParameters()
         for i in range(0, size):
-            ref = objects.pop()
+            ref = objects.pop(0)
             if ref.token == ALexerTokenType.comma:
                 print("Assembler Parser error: comma in wrong place")
                 quit()
 
             line.append(ref)
+            
+            if ref.token == ALexerTokenType.memory and ref.value == "[":
+                value = objects.pop(0)
+                close = objects.pop(0)
+
+                if value.token == ALexerTokenType.value:
+                    line.append(value)
+                    value = 0
+
+                if close.token == ALexerTokenType.memory and close.value == "]":
+                    line.append(close)
+                    close = 0
+                
+                if value or close:                    
+                    print("Assembler Parser error: memory cast")
+                    quit()
 
             if i + 1 == size: #last
-                return line
+                return AParserLine(line, objects)
             
             if len(objects) == 0:
                 print("Assembler Parser error: missing instructions")
@@ -379,8 +487,98 @@ class AParserLine:
                 print("Assembler Parser error: missing comma")
                 quit()
             else:
-                objects.pop()
+                objects.pop(0)
 
         print("Assembler Parser error: ERROR")
         quit()
+
+class AParserContext:
+    @staticmethod
+    def isLoad(objects):
+        if len(objects) == 0:
+            return False
         
+        return objects[0].value == "load"
+
+    @staticmethod
+    def isStore(objects):
+        if len(objects) == 0:
+            return False
+        
+        return objects[0].value == "store"
+
+    @staticmethod
+    def isMov(objects):
+        if len(objects) == 0:
+            return False
+        
+        return objects[0].value == "mov"
+
+    @staticmethod
+    def isOperation(objects):
+        if len(objects) == 0:
+            return False
+        
+        return objects[0].token == ALexerTokenType.operation
+
+    @staticmethod
+    def isJump(objects):
+        if len(objects) == 0:
+            return False
+        
+        return objects[0].token == ALexerTokenType.jump
+
+    @staticmethod
+    def isJumpCmp(objects):
+        if len(objects) == 0:
+            return False
+        
+        return objects[0].token == ALexerTokenType.jumpCmp
+
+    @staticmethod
+    def context(objects):
+        if len(objects) == 0:
+            return
+
+        if AParserContext.isLoad(objects):
+            return AParserLoad.asLoad(objects)
+
+        if AParserContext.isStore(objects):
+            return AParserStore.asStore(objects)
+
+        if AParserContext.isMov(objects):
+            return AParserMov.asMov(objects)
+
+        if AParserContext.isOperation(objects):
+            return AParserOperation.asOperation(objects)
+
+        if AParserContext.isJump(objects):
+            return AParserJump.asJump(objects)
+
+        if AParserContext.isJumpCmp(objects):
+            return AParserJumpCmp.asJumpCmp(objects)
+        
+        print("Assembler Parser: tokens not recognized " + str(objects[0].token) )
+        quit()
+
+class AParser:
+    @staticmethod
+    def run(queue):
+        liner = 0
+        instructions = []
+        while len(queue) >= 1:
+            liner = AParserLine.filter(queue)
+            queue = liner.rest
+            liner = liner.line
+
+            handler = AParserContext.context(liner)
+            if not handler:
+                print("Assembler Parser: tokens not recognized #")
+                quit()
+            
+            instructions.append(handler)
+
+        
+        return instructions
+
+

@@ -1,4 +1,5 @@
 from enum import Enum, unique
+import os
 from Lexer.LexerQueue import LexerQueue
 from .AssemblerMap import Mapper, Operation, AssemblerAction, Element
 
@@ -156,6 +157,24 @@ class AssemblerInstruction:
 
     def __init__(self):
         return
+
+    def toFile(self, args):
+        args = [args[i] for i in range(0, len(args))]
+        del args[0]
+        path = args.pop(0)
+        if path[0] == '/':
+            print(path)
+            exit()
+        else:
+            path = os.getcwd() + '/' + path
+            print(path)
+
+        path = path.split("/")
+        fileName = path.pop().split(".").pop(0)
+        path = "/".join(path) + "/"+fileName+".a"
+        file = open(path, "w")
+        file.write(self.instruction)
+        file.close()
 
     @staticmethod
     def shared():
@@ -467,4 +486,4 @@ class Assembler:
                 holder = 0
                 AssemblerInstruction.shared().instruction += "\n"
             
-            print(AssemblerInstruction.shared().instruction)
+        return AssemblerInstruction.shared()

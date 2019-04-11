@@ -376,6 +376,7 @@ class Lexer:
 
     @staticmethod
     def run(args):
+        args = [args[i] for i in range(0, len(args))]
         del args[0]
 
         if len(args) == 0:
