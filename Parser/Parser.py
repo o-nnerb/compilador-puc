@@ -2,7 +2,6 @@ from Lexer.LexerEnum import LexerEnum
 from Lexer.LexerQueue import LexerQueue
 from Lexer.LexerToken import LexerToken
 from Lexer.LexerHash import LexerHash
-from .ParserTree import ParserTree
 
 from Interpreter.Variable.Variable import VariableConstantType, VariableDeclarationCast
 

@@ -1,5 +1,6 @@
 from .Lexer.ALexer import ALexer
 from .Parser.AParser import AParser
+from .VirtualMachine.VM import VM
 import sys
 import os
 
@@ -15,18 +16,14 @@ class ACompiler:
 
         path = args.pop(0)
         if path[0] == '/':
-            print(path)
             exit()
 
         path = os.getcwd() + '/' + path
-        print(path)
 
         path = path.split("/")
         file = path.pop().split(".").pop(0)
 
         path = "/".join(path)
-        print(path)
-        print(file)
 
         file = open(path+"/"+file+".a", "r")
         string = ""
@@ -38,4 +35,5 @@ class ACompiler:
     @staticmethod
     def compile():
         
-        print(AParser.run(ALexer.run(ACompiler.readFile(sys.argv))))
+        VM.mount(AParser.run(ALexer.run(ACompiler.readFile(sys.argv)))).run()
+        

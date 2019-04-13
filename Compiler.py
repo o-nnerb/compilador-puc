@@ -22,7 +22,7 @@ for arg in sys.argv:
         LexerQueue.shared().verbose()
 
         print("\nLista de Instruções (Parser)")
-        instructions.verbose(showContent=False)
+        instructions.copy().verbose(showContent=False)
 
 Assembler.run(instructions).toFile(sys.argv)
 ACompiler.compile()

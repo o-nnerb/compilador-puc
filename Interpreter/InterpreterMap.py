@@ -233,7 +233,7 @@ def intepreterString(queue):
     return variable
 
 def map(parserObject, __newVariable=0):
-    print(parserObject)
+    #print(parserObject)
     if type(parserObject) == ParserEmpty:
         return 
     

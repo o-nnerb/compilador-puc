@@ -163,11 +163,9 @@ class AssemblerInstruction:
         del args[0]
         path = args.pop(0)
         if path[0] == '/':
-            print(path)
             exit()
         else:
             path = os.getcwd() + '/' + path
-            print(path)
 
         path = path.split("/")
         fileName = path.pop().split(".").pop(0)
@@ -366,7 +364,7 @@ class AssemblerElementContext:
         if type(object) != Element:
             return
         
-        print(object.action)
+        #print(object.action)
         if object.action == AssemblerAction.constant:
             return AssemblerValueConstant(object.value)
         if object.action == AssemblerAction.load:
@@ -454,9 +452,7 @@ class Assembler:
         Assembler.queue = queue.copy()
 
         while not Assembler.queue.isEmpty():
-            instructions = Mapper.map(Assembler.queue.popFirst())
-            print(instructions)
-            
+            instructions = Mapper.map(Assembler.queue.popFirst())            
             holder = 0
             for instruction in instructions:
                 flag = 0
@@ -475,7 +471,7 @@ class Assembler:
                         holder = AssemblerElementContext.toAssembly(instruction)
                         flag = True
                         if type(holder) == AssemblerValueConstant:
-                            holder = AssemblerInstruction.load(holder.value, 0).register
+                            holder = AssemblerInstruction.mov(AssemblerInstruction.shared().register.firstAvailable(), holder).register
             
                 if not flag:
                     holder = Assembler.isOperation(instruction)

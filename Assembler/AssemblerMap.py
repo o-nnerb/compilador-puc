@@ -54,7 +54,7 @@ class Mapper:
 
     @staticmethod
     def _map(object):
-        print(object)
+        #print(object)
 
         if type(object) == ParserEmpty:
             return []

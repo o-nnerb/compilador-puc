@@ -356,7 +356,6 @@ class AParserStore:
 
         return handler
 
-
 class AParserLoad:
     code = 0
     first = 0
@@ -422,6 +421,102 @@ class AParserLoad:
             return False
         
         handler = AParserLoad.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
+
+class AParserPush:
+    code = 0
+    first = 0
+
+    def __init__(self, code, first):
+        self.code = code
+        self.first = first
+
+    @staticmethod
+    def init():
+        return AParserPush(0, 0) 
+
+    def merge(self, some):  
+        if not self.first:
+            if some.token == ALexerTokenType.register:
+                self.first = AssemblerRegister.fromString(some.value)
+                return self  
+
+        if not self.code:
+            if some.token == ALexerTokenType.push:
+                self.code = some.value
+                return self
+
+            dieUnrecognized(some.token)
+
+    def isValid(self):        
+        if not self.first:
+            return False
+        
+        if not self.code:
+            return False
+        
+        return True
+
+    @staticmethod
+    def asPush(objects):
+        if len(objects) != 2:
+            return False
+        
+        handler = AParserPush.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
+
+class AParserPop:
+    code = 0
+    first = 0
+
+    def __init__(self, code, first):
+        self.code = code
+        self.first = first
+
+    @staticmethod
+    def init():
+        return AParserPop(0, 0) 
+
+    def merge(self, some):  
+        if not self.first:
+            if some.token == ALexerTokenType.register:
+                self.first = AssemblerRegister.fromString(some.value)
+                return self  
+
+        if not self.code:
+            if some.token == ALexerTokenType.pop:
+                self.code = some.value
+                return self
+
+            dieUnrecognized(some.token)
+
+    def isValid(self):        
+        if not self.first:
+            return False
+        
+        if not self.code:
+            return False
+        
+        return True
+
+    @staticmethod
+    def asPop(objects):
+        if len(objects) != 2:
+            return False
+        
+        handler = AParserPop.init()
         while len(objects) != 0:
             handler = handler.merge(objects.pop())
 
@@ -536,6 +631,20 @@ class AParserContext:
         return objects[0].token == ALexerTokenType.jumpCmp
 
     @staticmethod
+    def isPush(objects):
+        if len(objects) == 0:
+            return False
+        
+        return objects[0].token == ALexerTokenType.push
+
+    @staticmethod
+    def isPop(objects):
+        if len(objects) == 0:
+            return False
+        
+        return objects[0].token == ALexerTokenType.pop
+
+    @staticmethod
     def context(objects):
         if len(objects) == 0:
             return
@@ -557,6 +666,12 @@ class AParserContext:
 
         if AParserContext.isJumpCmp(objects):
             return AParserJumpCmp.asJumpCmp(objects)
+
+        if AParserContext.isPush(objects):
+            return AParserPush.asPush(objects)
+
+        if AParserContext.isPop(objects):
+            return AParserPop.asPop(objects)
         
         print("Assembler Parser: tokens not recognized " + str(objects[0].token) )
         quit()
@@ -578,7 +693,6 @@ class AParser:
             
             instructions.append(handler)
 
-        
         return instructions
 
 

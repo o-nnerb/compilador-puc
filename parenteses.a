@@ -1,18 +1,14 @@
-load R1, [1]
+mov R1, 0
+div R1, 100, 1
 store [0], R1
+
+mov R1, 100
+store [1], R1
 
 load R1, [0]
-mul R1, R1, 10
-store [0], R1
-
-mov R1, 0
-add R1, 2, 3
-mov R2, 0
-add R2, 10, 11
-load R3, [0]
-add R3, 1, R3
-add R2, R2, R3
+load R2, [1]
+div R2, R2, 100
 add R2, R2, 10
-add R1, R1, R2
-store [1], R1
+pot R1, R1, R2
+store [2], R1
 

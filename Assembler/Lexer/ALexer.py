@@ -20,6 +20,9 @@ class ALexerTokenType(Enum):
     register = 9
     value = 10
 
+    pop = 11
+    push = 12
+
     def isKeyword(self):
         if self == ALexerTokenType.operation:
             return True
@@ -37,6 +40,12 @@ class ALexerTokenType(Enum):
             return True
         
         if self == ALexerTokenType.load:
+            return True
+
+        if self == ALexerTokenType.pop:
+            return True
+        
+        if self == ALexerTokenType.push:
             return True
 
         return False
@@ -59,6 +68,12 @@ class ALexerTokenType(Enum):
         
         if self == ALexerTokenType.load:
             return 2
+
+        if self == ALexerTokenType.pop:
+            return 1
+        
+        if self == ALexerTokenType.push:
+            return 1
 
         return 0
 
@@ -164,6 +179,15 @@ class ALexerMapper:
         if substring == "load":
             return ALexerToken(substring, ALexerTokenType.load)
 
+        if substring == "pop":
+            return ALexerToken(substring, ALexerTokenType.pop)
+
+        if substring == "push":
+            return ALexerToken(substring, ALexerTokenType.pop)
+
+        if substring == "jump":
+            return ALexerToken(substring, ALexerTokenType.jump)
+
         if ALexerMemory.isMemory(substring):
             first = ALexerToken(substring[0], ALexerTokenType.memory)
             second = ALexerToken(substring[1:len(substring)-1], ALexerTokenType.value)
@@ -176,9 +200,6 @@ class ALexerMapper:
 
         if ALexerOperation.isOperation(substring):
             return ALexerToken(substring, ALexerTokenType.operation)
-
-        if substring == "jump":
-            return ALexerToken(substring, ALexerTokenType.jump)
 
         if ALexerJumpCMP.isJump(substring):
             return ALexerToken(substring, ALexerTokenType.jumpCmp)
