@@ -665,7 +665,7 @@ class AParserContext:
             return AParserJump.asJump(objects)
 
         if AParserContext.isJumpCmp(objects):
-            return AParserJumpCmp.asJumpCmp(objects)
+            return AParserJumpCMP.asJumpCMP(objects)
 
         if AParserContext.isPush(objects):
             return AParserPush.asPush(objects)

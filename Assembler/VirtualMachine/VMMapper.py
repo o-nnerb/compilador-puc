@@ -26,7 +26,6 @@ class VMMapper:
     @staticmethod
     def asJump(object):
         object.first = VMMapper.toVMObject(object.first)
-        object.second = VMMapper.toVMObject(object.second)
         return VMJump.fromSuper(object)
         
     @staticmethod
@@ -62,7 +61,7 @@ class VMMapper:
     @staticmethod
     def asPush(object):
         object.first = VMMapper.toVMObject(object.first)
-        return VMPop.fromSuper(object)
+        return VMPush.fromSuper(object)
 
     @staticmethod
     def map(object):

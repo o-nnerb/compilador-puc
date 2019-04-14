@@ -104,6 +104,8 @@ class VMJumpCMP(AParserJumpCMP):
             shouldJump = VMOperation.asValue(self.first) < VMOperation.asValue(self.second)
         
         elif self.code == "ble":
+            print(self.first.value)
+            print(self.second)
             shouldJump = VMOperation.asValue(self.first) <= VMOperation.asValue(self.second)
         
         elif self.code == "bgt":
@@ -161,7 +163,7 @@ class VMPush(AParserPush):
 
     @staticmethod
     def fromSuper(sup):
-        return VMPush(sup.code, sup.first, sup.second)
+        return VMPush(sup.code, sup.first)
 
     def execute(self):
         VMMemoryController.shared().push(self.first.value)
@@ -172,7 +174,7 @@ class VMPop(AParserPop):
 
     @staticmethod
     def fromSuper(sup):
-        return VMPop(sup.code, sup.first, sup.second)
+        return VMPop(sup.code, sup.first)
 
     def execute(self):
         self.first.value = VMMemoryController.shared().pop()

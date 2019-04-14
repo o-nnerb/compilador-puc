@@ -8,8 +8,12 @@ from Assembler.Assembler import Assembler
 
 from Assembler.ACompiler import ACompiler
 
-Lexer.run(sys.argv)
+for arg in sys.argv:
+    if arg == "-asm":
+        ACompiler.compile()
+        quit()
 
+Lexer.run(sys.argv)
 instructions = Parser.run()
 Interpreter.run(instructions)
 

@@ -69,7 +69,7 @@ class VMMemoryController:
         self.programCounter = pointer
 
     def push(self, value):
-        self.stack.store(value, self.stack.nextIndex())
+        self.stack.store(self.stack.nextIndex(), value)
 
     def pop(self):
         poped = self.stack.delete(self.stack.nextIndex()-1)

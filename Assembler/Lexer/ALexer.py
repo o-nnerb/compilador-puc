@@ -159,6 +159,11 @@ class ALexerSppliter:
                 if c == ',':
                     slist.append(c)
 
+        if len(ss) >= 1:
+            slist.append(ss)
+            ss = ""
+
+
         return slist
 
 class ALexerMapper:
@@ -183,7 +188,7 @@ class ALexerMapper:
             return ALexerToken(substring, ALexerTokenType.pop)
 
         if substring == "push":
-            return ALexerToken(substring, ALexerTokenType.pop)
+            return ALexerToken(substring, ALexerTokenType.push)
 
         if substring == "jump":
             return ALexerToken(substring, ALexerTokenType.jump)
