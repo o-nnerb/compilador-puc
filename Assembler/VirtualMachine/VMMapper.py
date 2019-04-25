@@ -1,5 +1,5 @@
-from Assembler.Parser.AParser import AParserOperation, AParserJump, AParserJumpCMP, AParserMov, AParserStore, AParserLoad, AParserPop, AParserPush
-from .VMExtensions import VMOperation, VMJump, VMJumpCMP, VMJumpCMP, VMMov, VMStore, VMLoad, VMPush, VMPop
+from Assembler.Parser.AParser import AParserOperation, AParserJump, AParserJumpCMP, AParserMov, AParserStore, AParserLoad, AParserPop, AParserPush, AParserEmpty
+from .VMExtensions import VMOperation, VMJump, VMJumpCMP, VMJumpCMP, VMMov, VMStore, VMLoad, VMPush, VMPop, VMEmpty
 from Assembler.Assembler import AssemblerRegister, AssemblerValueConstant
 from .VMRegisterController import VMRegisterController
 
@@ -64,6 +64,10 @@ class VMMapper:
         return VMPush.fromSuper(object)
 
     @staticmethod
+    def asEmpty(object):
+        return VMEmpty.fromSuper(object)        
+
+    @staticmethod
     def map(object):
         if type(object) == AParserOperation:
             return VMMapper.asOperation(object)
@@ -88,3 +92,6 @@ class VMMapper:
 
         if type(object) == AParserPush:
             return VMMapper.asPush(object)
+
+        if type(object) == AParserEmpty:
+            return VMMapper.asEmpty(object)

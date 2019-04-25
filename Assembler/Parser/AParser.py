@@ -525,6 +525,45 @@ class AParserPop:
 
         return handler
 
+class AParserEmpty:
+    code = 0
+
+    def __init__(self, code):
+        self.code = code
+
+    @staticmethod
+    def init():
+        return AParserEmpty(0) 
+
+    def merge(self, some):
+        if not self.code:
+            if some.token == ALexerTokenType.empty:
+                self.code = some.value
+                return self
+
+            dieUnrecognized(some.token)
+
+    def isValid(self):        
+        if not self.code:
+            return False
+        
+        return True
+
+    @staticmethod
+    def asEmpty(objects):
+        if len(objects) != 1:
+            return False
+        
+        handler = AParserEmpty.init()
+        while len(objects) != 0:
+            handler = handler.merge(objects.pop())
+
+        if not handler.isValid():
+            return False
+
+        return handler
+
+
 class AParserLine:
     line = 0
     rest = 0
@@ -533,9 +572,20 @@ class AParserLine:
         self.rest = rest
 
     @staticmethod
+    def isOne(ref):
+        if ref.token == ALexerTokenType.empty:
+            return True
+
+        return False
+
+    @staticmethod
     def filter(objects):
         line = []
         first = objects.pop(0)
+
+        if AParserLine.isOne(first):
+            return AParserLine([first], objects)
+
         if len(objects) == 0:
             print("Assembler Parser error: incomplete instruction")
             quit()
@@ -546,6 +596,7 @@ class AParserLine:
             quit()
         
         line.append(first)
+
         size = first.token.countParameters()
         for i in range(0, size):
             ref = objects.pop(0)
@@ -645,6 +696,13 @@ class AParserContext:
         return objects[0].token == ALexerTokenType.pop
 
     @staticmethod
+    def isEmpty(objects):
+        if len(objects) == 0:
+            return False
+        
+        return objects[0].token == ALexerTokenType.empty
+
+    @staticmethod
     def context(objects):
         if len(objects) == 0:
             return
@@ -672,6 +730,9 @@ class AParserContext:
 
         if AParserContext.isPop(objects):
             return AParserPop.asPop(objects)
+
+        if AParserContext.isEmpty(objects):
+            return AParserEmpty.asEmpty(objects)
         
         print("Assembler Parser: tokens not recognized " + str(objects[0].token) )
         quit()

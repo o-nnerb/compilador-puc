@@ -1,4 +1,4 @@
-from Assembler.Parser.AParser import AParserOperation, AParserJump, AParserJumpCMP, AParserMov, AParserStore, AParserLoad, AParserPop, AParserPush
+from Assembler.Parser.AParser import AParserOperation, AParserJump, AParserJumpCMP, AParserMov, AParserStore, AParserLoad, AParserPop, AParserPush, AParserEmpty
 from .VMMemoryController import VMMemoryController
 from .VMRegisterController import VMRegisterControl
 
@@ -178,3 +178,13 @@ class VMPop(AParserPop):
 
     def execute(self):
         self.first.value = VMMemoryController.shared().pop()
+
+class VMEmpty(AParserEmpty):
+    # code = 0
+
+    @staticmethod
+    def fromSuper(sup):
+        return VMEmpty(sup.code)
+
+    def execute(self):
+        return

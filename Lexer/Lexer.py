@@ -67,7 +67,7 @@ class Lexer:
 
     @staticmethod
     def isNum(imin):
-        i = imin
+        i = imin + (Lexer.charAt(imin) == '-')
         isFloat = False
         while i < len(Lexer.line):
             if bool(re.match("[0-9]", Lexer.charAt(i))) == False:

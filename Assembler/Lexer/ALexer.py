@@ -23,6 +23,8 @@ class ALexerTokenType(Enum):
     pop = 11
     push = 12
 
+    empty = 13
+
     def isKeyword(self):
         if self == ALexerTokenType.operation:
             return True
@@ -46,6 +48,9 @@ class ALexerTokenType(Enum):
             return True
         
         if self == ALexerTokenType.push:
+            return True
+        
+        if self == ALexerTokenType.empty:
             return True
 
         return False
@@ -99,15 +104,28 @@ class ALexerRegister:
     
         return False
 
-def isNumeric(string):
-    if len(string) == 1:
-        if string == "0":
+def isNumber(char):
+    for num in range(0, 10):
+        if char == str(num):
             return True
+    return False
+
+def asInteger(string):
+    if len(string) == 0:
+        return False
+
+    if len(string) == 1:
+        return isNumber(string)
     
-    try:
-        return int(string) > 0
-    except ValueError:
-        return False 
+    isNegative = 0
+    if string[0] == '-':
+        isNegative = 1
+    
+    for i in range(isNegative, len(string)):
+        if not isNumber(string[i]):
+            return False
+        
+    return True
 
 class ALexerMemory:
     @staticmethod
@@ -121,7 +139,7 @@ class ALexerMemory:
         if substring[len(substring)-1] != ']':
             return False
         
-        return isNumeric(substring[1:len(substring)-1])
+        return asInteger(substring[1:len(substring)-1])
 
 class ALexerOperation:
     @staticmethod
@@ -142,6 +160,11 @@ class ALexerJumpCMP:
                 return True
                 
         return False
+
+class ALexerEmpty:
+    @staticmethod
+    def isEmpty(substring):
+        return substring == '\n'
         
 class ALexerSppliter:
     @staticmethod
@@ -158,6 +181,9 @@ class ALexerSppliter:
 
                 if c == ',':
                     slist.append(c)
+            
+            elif c == '\n':
+                slist.append(c)
 
         if len(ss) >= 1:
             slist.append(ss)
@@ -200,7 +226,7 @@ class ALexerMapper:
 
             return [first, second, third]
         
-        if isNumeric(substring):
+        if asInteger(substring):
             return ALexerToken(substring, ALexerTokenType.value)
 
         if ALexerOperation.isOperation(substring):
@@ -208,6 +234,9 @@ class ALexerMapper:
 
         if ALexerJumpCMP.isJump(substring):
             return ALexerToken(substring, ALexerTokenType.jumpCmp)
+
+        if ALexerEmpty.isEmpty(substring):
+            return ALexerToken("empty", ALexerTokenType.empty)
 
         print("Assembler error: can't recognize " +str(substring))
         quit()

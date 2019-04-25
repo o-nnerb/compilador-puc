@@ -1,5 +1,1 @@
-var a = 100 / 1
-
-let b = 100
-var c = a ^ (b/100) + 10
-console(print: "one")
+var a = -1
