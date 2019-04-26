@@ -1,8 +1,9 @@
 from enum import Enum, unique
 import os
 from Lexer.LexerQueue import LexerQueue
-from .AssemblerMap import Mapper, Operation, AssemblerAction, Element
+from .AssemblerMap import Mapper, Operation, AssemblerAction, Element, DynamicJump, If
 
+import traceback
 class AssemblerVariable:
     pointer = 0
     name = 0
@@ -13,13 +14,18 @@ class AssemblerVariable:
     
 class AssemblerVariables:
     allVariables = []
-
+    assemblerInstruction = 0
+    
     def __init__(self):
         self.allVariables = []
 
+    def context(self, assemblerInstruction):
+        self.assemblerInstruction = assemblerInstruction
+        return self
+
     def save(self, variable, register):
         variable = AssemblerVariable(variable.name, len(self.allVariables))
-        AssemblerInstruction.store(variable.pointer, register)
+        self.assemblerInstruction.store(variable.pointer, register)
         self.allVariables.append(variable)
 
     def findPointer(self, variable):
@@ -142,6 +148,12 @@ class AssemblerContext:
         self.register = register
         self.line = line
 
+class InstructionsContext:
+    assembler = 0
+
+    def __init__(self, assembler):
+        self.assembler = assembler
+
 class AssemblerValueConstant:
     value = 0
 
@@ -151,12 +163,14 @@ class AssemblerValueConstant:
 class AssemblerInstruction:
     register = AssemblerRegisters()
     counter = 0
-    instruction = ""
+    instruction = []
 
     __shared = 0
 
     def __init__(self):
-        return
+        self.counter = 0
+        self.instruction = []
+
 
     def toFile(self, args):
         args = [args[i] for i in range(0, len(args))]
@@ -171,7 +185,7 @@ class AssemblerInstruction:
         fileName = path.pop().split(".").pop(0)
         path = "/".join(path) + "/"+fileName+".a"
         file = open(path, "w")
-        file.write(self.instruction)
+        file.write(self.asLines())
         file.close()
 
     @staticmethod
@@ -182,35 +196,43 @@ class AssemblerInstruction:
         return AssemblerInstruction.__shared
 
     def save(self, string):
-        self.instruction += string + "\n"
+        self.instruction.append(string)
         self.counter += 1
         return self.counter
 
-    @staticmethod
-    def load(pointer, register=0):
-        self = AssemblerInstruction.shared()
+    def asLines(self):
+        if len(self.instruction) == 0:
+            return "\n"
+        isEnd = self.instruction[len(self.instruction)-1] == "\n"
+        if isEnd:
+            isEnd = ""
+        else:
+            isEnd = "\n"
+        return ("\n".join([line for line in self.instruction])) + isEnd
 
+    @staticmethod
+    def temporary():
+        return AssemblerInstruction()
+        
+    def load(self, pointer, register=0):
         if not register:
             register = self.register.firstAvailable()
             register.lock()
         
         pointer = "["+str(pointer)+"]"
-        
+
+        traceback.print_stack()
         return AssemblerContext(register, self.save("load " + register.name() + ", " + str(pointer)))
 
-    @staticmethod
-    def store(pointer, register):
-        self = AssemblerInstruction.shared()
+    def store(self, pointer, register):
         register.unlock()
         pointer = "["+str(pointer)+"]"
 
         return AssemblerContext(register, self.save("store " + str(pointer) + ", " + register.name()))
 
-    @staticmethod
-    def mov(first, second):
-        self = AssemblerInstruction.shared()
+    def mov(self, first, second):
         first.lock()
-        second = self.asSomething(second)
+        second = AssemblerInstruction.asSomething(second)
 
         return AssemblerContext(first, self.save("mov " + first.name() + ", " + second))
     
@@ -221,146 +243,119 @@ class AssemblerInstruction:
 
         return register.name()
 
-
-    @staticmethod
-    def binary(first, second, third, operation):
-        self = AssemblerInstruction.shared()
+    def binary(self, first, second, third, operation):
         first.lock()
         
-        second = self.asSomething(second)
-        third = self.asSomething(third)
+        second = AssemblerInstruction.asSomething(second)
+        third = AssemblerInstruction.asSomething(third)
         
         return AssemblerContext(first, self.save(operation + " " + first.name() + ", " + second + ", " + third))
     
-    @staticmethod
-    def unary(first, second, operation):
-        self = AssemblerInstruction.shared()
+    def unary(self, first, second, operation):
         first.lock()
         
-        second = self.asSomething(second)
+        second = AssemblerInstruction.asSomething(second)
 
         return AssemblerContext(first, self.save(operation + " " + first.name() + ", " + second))
 
-    @staticmethod
-    def add(first, second, register=0):
+    def add(self, first, second, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, second, "add")
+        return self.binary(register, first, second, "add")
     
-    @staticmethod
-    def sub(first, second, register=0):
+    def sub(self, first, second, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, second, "sub")
+        return self.binary(register, first, second, "sub")
     
-    @staticmethod
-    def mul(first, second, register=0):
+    def mul(self, first, second, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, second, "mul")
+        return self.binary(register, first, second, "mul")
     
-    @staticmethod
-    def div(first, second, register=0):
+    def div(self, first, second, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, second, "div")
+        return self.binary(register, first, second, "div")
     
-    @staticmethod
-    def mod(first, second, register=0):
+    def mod(self, first, second, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, second, "mod")
+        return self.binary(register, first, second, "mod")
     
-    @staticmethod
-    def pot(first, second, register=0):
+    def pot(self, first, second, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, second, "pot")
+        return self.binary(register, first, second, "pot")
     
-    @staticmethod
-    def cmpAnd(first, second, register=0):
+    def cmpAnd(self, first, second, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, second, "and")
+        return self.binary(register, first, second, "and")
     
-    @staticmethod
-    def cmpOr(first, second, register=0):
+    def cmpOr(self, first, second, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, second, "or")
+        return self.binary(register, first, second, "or")
     
-    @staticmethod
-    def cmpNot(first, register=0):
+    def cmpNot(self, first, register=0):
         if not register:
-            register = AssemblerInstruction.shared().register.firstAvailable()
+            register = self.register.firstAvailable()
 
-        return AssemblerInstruction.binary(register, first, "or")
+        return self.binary(register, first, "or")
     
-    @staticmethod
-    def jump(pointer):
-        self = AssemblerInstruction.shared()
-        return AssemblerInstruction.binary(0, self.save("jump " + str(pointer)))
+    def jump(self, pointer):
+        return self.binary(0, self.save("jump " + str(pointer)))
 
-    @staticmethod
-    def jumps(first, second, pointer, operation):
-        self = AssemblerInstruction.shared()
-        
-        first = self.asSomething(first)
-        second = self.asSomething(second)
+    def jumps(self, first, second, pointer, operation):        
+        first = AssemblerInstruction.asSomething(first)
+        second = AssemblerInstruction.asSomething(second)
 
         return AssemblerContext(0, self.save(operation + " " + first + ", " + second + ", " + str(pointer)))
     
-    @staticmethod
-    def beq(first, second, pointer):
-        return AssemblerInstruction.jumps(first, second, pointer, "beq")
+    def beq(self, first, second, pointer):
+        return self.jumps(first, second, pointer, "beq")
 
-    @staticmethod
-    def bne(first, second, pointer):
-        return AssemblerInstruction.jumps(first, second, pointer, "bne")
+    def bne(self, first, second, pointer):
+        return self.jumps(first, second, pointer, "bne")
 
-    @staticmethod
-    def blt(first, second, pointer):
-        return AssemblerInstruction.jumps(first, second, pointer, "blt")
+    def blt(self, first, second, pointer):
+        return self.jumps(first, second, pointer, "blt")
 
-    @staticmethod
-    def ble(first, second, pointer):
-        return AssemblerInstruction.jumps(first, second, pointer, "ble")
+    def ble(self, first, second, pointer):
+        return self.jumps(first, second, pointer, "ble")
 
-    @staticmethod
-    def bgt(first, second, pointer):
-        return AssemblerInstruction.jumps(first, second, pointer, "bgt")
+    def bgt(self, first, second, pointer):
+        return self.jumps(first, second, pointer, "bgt")
 
-    @staticmethod
-    def bge(first, second, pointer):
-        return AssemblerInstruction.jumps(first, second, pointer, "bge")
+    def bge(self, first, second, pointer):
+        return self.jumps(first, second, pointer, "bge")
 
-    @staticmethod
-    def push(first):
+    def push(self, first):
         return AssemblerContext(first, self.save("push " + first.name()))
 
-    @staticmethod
-    def pop(first):
+    def pop(self, first):
         return AssemblerContext(first, self.save("pop " + first.name()))
 
-    @staticmethod
-    def read(first):
+    def read(self, first):
         return AssemblerContext(first, self.save("read " + first.name()))
 
-    @staticmethod
-    def write(first):
+    def write(self, first):
         return AssemblerContext(first, self.save("write " + first.name()))
 
-class AssemblerElementContext:
-    @staticmethod
-    def toAssembly(object):
+class AssemblerElementContext(InstructionsContext):
+    def __init__(self, assembler):
+        super(AssemblerElementContext, self).__init__(assembler)
+
+    def toAssembly(self, object):
         if type(object) != Element:
             return
         
@@ -369,12 +364,13 @@ class AssemblerElementContext:
             return AssemblerValueConstant(object.value)
         if object.action == AssemblerAction.load:
             pointer = Assembler.variables.findPointer(object)
-            return  AssemblerInstruction.load(pointer).register
+            return  self.assembler.load(pointer).register
 
-class AssemblerOperationContext:
+class AssemblerOperationContext(InstructionsContext):
+    def __init__(self, assembler):
+        super(AssemblerOperationContext, self).__init__(assembler)
 
-    @staticmethod
-    def doOperation(object):
+    def doOperation(self, object):
         holder = 0
         unlock = 0
         if type(object.first) == AssemblerRegisterControl:
@@ -387,48 +383,47 @@ class AssemblerOperationContext:
                 unlock = object.second
 
         if not holder:
-            holder = AssemblerInstruction.shared().register.firstAvailable()
-            AssemblerInstruction.mov(holder, AssemblerValueConstant(0))
+            holder = self.assembler.register.firstAvailable()
+            self.assembler.mov(holder, AssemblerValueConstant(0))
 
         if object.operator == "+":
-            holder = AssemblerInstruction.add(object.first, object.second, holder)
+            holder = self.assembler.add(object.first, object.second, holder)
 
         if object.operator == "-":
-            holder = AssemblerInstruction.sub(object.first, object.second, holder)
+            holder = self.assembler.sub(object.first, object.second, holder)
 
         if object.operator == "*":
-            holder = AssemblerInstruction.mul(object.first, object.second, holder)
+            holder = self.assembler.mul(object.first, object.second, holder)
 
         if object.operator == "/":
-            holder = AssemblerInstruction.div(object.first, object.second, holder)
+            holder = self.assembler.div(object.first, object.second, holder)
 
         if object.operator == "%":
-            holder = AssemblerInstruction.mod(object.first, object.second, holder)
+            holder = self.assembler.mod(object.first, object.second, holder)
 
         if object.operator == "^":
-            holder = AssemblerInstruction.pot(object.first, object.second, holder)
+            holder = self.assembler.pot(object.first, object.second, holder)
 
         if object.operator == "and":
-            holder = AssemblerInstruction.cmpAnd(object.first, object.second, holder)
+            holder = self.assembler.cmpAnd(object.first, object.second, holder)
 
         if object.operator == "or":
-            holder = AssemblerInstruction.cmpOr(object.first, object.second, holder)
+            holder = self.assembler.cmpOr(object.first, object.second, holder)
 
         if unlock:
             unlock.unlock()
 
         return holder
 
-    @staticmethod
-    def toAssembly(object):
+    def toAssembly(self, object):
         if type(object) == Operation:
-            object.first = AssemblerOperationContext.toAssembly(object.first)
-            object.second = AssemblerOperationContext.toAssembly(object.second)
+            object.first = self.toAssembly(object.first)
+            object.second = self.toAssembly(object.second)
             
-            return AssemblerOperationContext.doOperation(object).register
+            return self.doOperation(object).register
         
         if type(object) == Element:
-            return AssemblerElementContext.toAssembly(object)
+            return AssemblerElementContext(self.assembler).toAssembly(object)
 
         return 0 
 
@@ -436,50 +431,63 @@ class Assembler:
     variables = AssemblerVariables()
     holder = 0
 
+    reference = 0
+
     @staticmethod
     def isAssigment(assigment):
         print(assigment.operator)
 
     @staticmethod
-    def isOperation(object):
+    def isOperation(context, object):
         if type(object) != Operation:
             return False
 
-        return AssemblerOperationContext.toAssembly(object)
-        
+        return AssemblerOperationContext(context).toAssembly(object)
+    
     @staticmethod
-    def run(queue):
-        Assembler.queue = queue.copy()
+    def toAssembly(assemblerInstruction, queue):
+        for object in queue:
+            instructions = Mapper.map(object)
 
-        while not Assembler.queue.isEmpty():
-            instructions = Mapper.map(Assembler.queue.popFirst())            
             holder = 0
             for instruction in instructions:
                 flag = 0
                 if holder and type(holder) == AssemblerRegisterControl:
                     if type(instruction) == Element:
                         if instruction.action == AssemblerAction.create:
-                            Assembler.variables.save(instruction, holder)
+                            Assembler.variables.context(assemblerInstruction).save(instruction, holder)
                             flag = True
                         if instruction.action == AssemblerAction.store:
-                            pointer = Assembler.variables.findPointer(instruction)
-                            AssemblerInstruction.store(pointer, holder).register
+                            pointer = Assembler.variables.context(assemblerInstruction).findPointer(instruction)
+                            assemblerInstruction.store(pointer, holder).register
                             flag = True
                     
                 else:
                     if type(instruction) == Element:
-                        holder = AssemblerElementContext.toAssembly(instruction)
+                        holder = AssemblerElementContext(assemblerInstruction).toAssembly(instruction)
                         flag = True
                         if type(holder) == AssemblerValueConstant:
-                            holder = AssemblerInstruction.mov(AssemblerInstruction.shared().register.firstAvailable(), holder).register
+                            holder = assemblerInstruction.mov(assemblerInstruction.register.firstAvailable(), holder).register
+
+                    if type(instruction) == If:
+                        temporary = AssemblerInstruction.temporary()
+                        print(temporary.instruction)
+                        temp = Assembler.toAssembly(temporary, instruction.block)
+                        print(temp.instruction)
+                        print(AssemblerInstruction.shared().instruction)
+                        #quit()
             
                 if not flag:
-                    holder = Assembler.isOperation(instruction)
+                    holder = Assembler.isOperation(assemblerInstruction, instruction)
                     flag = True
 
             if holder:
                 holder.unlock()
                 holder = 0
-                AssemblerInstruction.shared().instruction += "\n"
+                assemblerInstruction.instruction[len(assemblerInstruction.instruction)-1] += "\n"
             
-        return AssemblerInstruction.shared()
+        return assemblerInstruction
+
+    @staticmethod
+    def run(queue):
+        return Assembler.toAssembly(AssemblerInstruction.shared(), queue.copy().asArray())

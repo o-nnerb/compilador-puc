@@ -36,6 +36,23 @@ class Operation:
         self.second = second
         self.operator = operator
 
+class DynamicJump:
+    rule = 0
+    block = 0
+
+    def __init__(self, rule, block):
+        self.rule = rule
+        self.block = block
+
+class If(DynamicJump):
+    elseBlock = 0
+
+    def __init__(self, rule, block, elseBlock):
+        self.elseBlock = elseBlock
+        super(If, self).__init__(rule, block)
+
+
+
 class Mapper:
 
     @staticmethod
@@ -98,6 +115,16 @@ class Mapper:
                 quit()
             
             return [value, variable]
+        
+        if type(object) == ParserIf:
+            if not object.block:
+                object.block = []
+            else:
+                object.block = object.block.asArray()
+
+            if not object.elseBlock:
+                return If(Mapper.toOperation(object.value), object.block, 0)
+            return If(Mapper.toOperation(object.value), object.block, Mapper.map(object.elseBlock))
 
     @staticmethod
     def map(object):

@@ -1,1 +1,9 @@
-var a = -1
+var a = 1
+var c = 1 + a
+
+if c == 1 {
+    a = a + 10
+    var e = 1
+} else {
+    
+}

@@ -193,6 +193,16 @@ class LexerQueue:
             head = head.getNext()
             function(last)
         
+    def asArray(self):
+        array = []
+        self.needsPersist(False)
+        self.toFirst()
+        
+        while not self.isEmpty():
+            array.append(self.popFirst())
+        
+        return array
+        
             
 
 

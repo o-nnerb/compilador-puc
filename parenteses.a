@@ -1,3 +1,7 @@
-mov R1, -1
+mov R1, 1
 store [0], R1
+
+load R1, [0]
+add R1, 1, R1
+store [1], R1
 
